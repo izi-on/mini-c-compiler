@@ -240,7 +240,7 @@ public class Tokeniser extends CompilerPass {
         // After consuming as much as possible, check if we ended on a valid symbol
         if (trieCursor != null && trieCursor.isEnd()) {
             // Return a token for the matched symbol
-            return new Token(trieCursor.getTokenCategory(), symbolBuilder.toString(), startLine, startCol);
+            return new Token(trieCursor.getTokenCategory(), startLine, startCol);
         } else {
             // We have partially matched something but it didn't end at a valid node
             // The simplest approach is to treat the entire string as either:
@@ -259,6 +259,7 @@ public class Tokeniser extends CompilerPass {
 
             // 2) Write some test code into the file
             try (PrintWriter pw = new PrintWriter(new FileWriter(tempSource))) {
+                pw.println("#include smthg");
                 pw.println("char c = 'a';");
                 pw.println("String s = \"Hello \\n World!\";");
                 pw.println("int x = 123;");
