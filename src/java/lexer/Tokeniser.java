@@ -8,6 +8,8 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * Tokeniser class that processes character streams from a Scanner
@@ -64,11 +66,13 @@ public class Tokeniser extends CompilerPass {
      * @return the raw string found between the matching delimiters (without the delimiters).
      * @throws Exception if the matching character is not found before EOF.
      */
-    private String getAllBetween(Character c) throws Exception {
+    private String getAllBetween(Character c, Set<Character> extraAllowedCharSet) throws Exception {
         StringBuilder content = new StringBuilder();
         boolean escaped = false;
         while (scanner.hasNext()) {
             char next = scanner.next();
+
+
             if (escaped) {
                 if (!Token.ESCAPABLE_CHARS.contains(next))
                     throw new Exception("Not a valid escape character");
@@ -80,6 +84,8 @@ public class Tokeniser extends CompilerPass {
             } else if (next == c) {
                 // We found the closing delimiter
                 return content.toString();
+            } else if (!(Character.isLetter(next) || Character.isDigit(next) || Character.isWhitespace(next) || extraAllowedCharSet.contains(next))) {
+                throw new Exception("Invalid character: invalid token");
             }
             content.append(next);
         }
@@ -94,7 +100,7 @@ public class Tokeniser extends CompilerPass {
         String content;
         try {
             // Reads everything until we find a matching single quote
-            content = getAllBetween('\'');
+            content = getAllBetween('\'', Token.SPECIAL_CHAR_WITHOUT_SINGLE_QUOTE);
         } catch (Exception e) {
             // If we cannot find the closing quote, it's an error
             error('\'', startLine, startCol);
@@ -120,7 +126,7 @@ public class Tokeniser extends CompilerPass {
         String content;
         try {
             // Reads everything until we find a matching double quote
-            content = getAllBetween('\"');
+            content = getAllBetween('\"', Token.SPECIAL_CHAR_WITHOUT_DOUBLE_QUOTE);
         } catch (Exception e) {
             // If we cannot find the closing quote, it's an error
             error('\"', startLine, startCol);
@@ -224,17 +230,13 @@ public class Tokeniser extends CompilerPass {
         while (scanner.hasNext()) {
             char peeked = scanner.peek(); // Look ahead without consuming
             // Stop if whitespace or something that can't continue the symbol
-            if (Character.isWhitespace(peeked) || !trieCursor.canContinue(peeked)) {
+            if (!trieCursor.canContinue(peeked)) {
                 break;
             }
             // Actually consume the peeked character
             scanner.next();
             symbolBuilder.append(peeked);
             trieCursor = trieCursor.traverse(peeked);
-            if (trieCursor == null) {
-                // No continuation possible
-                break;
-            }
         }
 
         // After consuming as much as possible, check if we ended on a valid symbol
@@ -264,6 +266,7 @@ public class Tokeniser extends CompilerPass {
                 pw.println("String s = \"Hello \\n World!\";");
                 pw.println("int x = 123;");
                 pw.println("char c = '\\n'");
+                pw.println("é;"); // this is allowed?
 //                pw.println("int y = 456abc;"); // This will likely cause an INVALID token
 //                pw.println("'\\n'"); // Valid escaped char literal
 //                pw.println("'\\x'");  // Invalid escaped char literal
