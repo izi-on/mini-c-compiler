@@ -40,31 +40,31 @@ public class Token {
     public static final Set<Character> ESCAPABLE_CHARS;
 
     static {
-        // ---------- SPECIAL_CHAR_WITHOUT_SINGLE_QUOTE ----------
-        Set<Character> withoutSingleQuote = new HashSet<>();
-        Collections.addAll(withoutSingleQuote,
-                '`', '~', '@', '!', '$', '#', '^', '*', '%', '&', '(',
-                ')', '[', ']', '{', '}', '<', '>', '+', '=', '_', '-',
-                '|', '/', ';', ':', ',', '.', '?', '"'
+        // Create a base set of all special characters
+        Set<Character> allSpecial = new HashSet<>();
+        Collections.addAll(allSpecial,
+                '`', '~', '@', '!', '$', '#', '^', '*', '%', '&', '(', ')',
+                '[', ']', '{', '}', '<', '>', '+', '=', '_', '-', '|', '/',
+                ';', ':', ',', '.', '?', '\'', '\"'
         );
+
+        // Derive SPECIAL_CHAR_WITHOUT_SINGLE_QUOTE by copying and removing single quote
+        Set<Character> withoutSingleQuote = new HashSet<>(allSpecial);
+        withoutSingleQuote.remove('\'');  // Remove single quote
         SPECIAL_CHAR_WITHOUT_SINGLE_QUOTE = Collections.unmodifiableSet(withoutSingleQuote);
 
-        // ---------- SPECIAL_CHAR_WITHOUT_DOUBLE_QUOTE ----------
-        Set<Character> withoutDoubleQuote = new HashSet<>();
-        Collections.addAll(withoutDoubleQuote,
-                '`', '~', '@', '!', '$', '#', '^', '*', '%', '&', '(',
-                ')', '[', ']', '{', '}', '<', '>', '+', '=', '_', '-',
-                '|', '/', ';', ':', ',', '.', '?', '\''
-        );
+        // Derive SPECIAL_CHAR_WITHOUT_DOUBLE_QUOTE by copying and removing double quote
+        Set<Character> withoutDoubleQuote = new HashSet<>(allSpecial);
+        withoutDoubleQuote.remove('\"');  // Remove double quote
         SPECIAL_CHAR_WITHOUT_DOUBLE_QUOTE = Collections.unmodifiableSet(withoutDoubleQuote);
 
         // ---------- ESCAPED_CHARS ----------
         Set<Character> escapable = new HashSet<>();
         Collections.addAll(escapable,
-                'a', 'b', 't', 'n', 'r', '0', '\'', '\"', '\\');
+                'a', 'b', 't', 'n', 'r', '0', '\'', '\"', '\\'
+        );
         ESCAPABLE_CHARS = Collections.unmodifiableSet(escapable);
     }
-
     public enum Category {
 
         // ' is used to enclose the input that needs to be recognized
