@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.function.Predicate;
 
 /**
  * Tokeniser class that processes character streams from a Scanner
@@ -66,7 +67,7 @@ public class Tokeniser extends CompilerPass {
      * @return the raw string found between the matching delimiters (without the delimiters).
      * @throws Exception if the matching character is not found before EOF.
      */
-    private String getAllBetween(Character c, Set<Character> extraAllowedCharSet) throws Exception {
+    private String getAllBetween(Character c, Predicate<Character> isAllowed) throws Exception {
         StringBuilder content = new StringBuilder();
         boolean escaped = false;
         while (scanner.hasNext()) {
@@ -84,7 +85,7 @@ public class Tokeniser extends CompilerPass {
             } else if (next == c) {
                 // We found the closing delimiter
                 return content.toString();
-            } else if (!(Character.isLetter(next) || Character.isDigit(next) || Character.isWhitespace(next) || extraAllowedCharSet.contains(next))) {
+            } else if (!(Character.isLetter(next) || Character.isDigit(next) || Character.isWhitespace(next) || isAllowed.test(next))) {
                 throw new Exception("Invalid character: invalid token");
             }
             content.append(next);
@@ -100,7 +101,7 @@ public class Tokeniser extends CompilerPass {
         String content;
         try {
             // Reads everything until we find a matching single quote
-            content = getAllBetween('\'', Token.SPECIAL_CHAR_WITHOUT_SINGLE_QUOTE);
+            content = getAllBetween('\'', (c) -> Token.SPECIAL_CHAR_WITHOUT_SINGLE_QUOTE.contains(c));
         } catch (Exception e) {
             // If we cannot find the closing quote, it's an error
             error('\'', startLine, startCol);
@@ -126,7 +127,7 @@ public class Tokeniser extends CompilerPass {
         String content;
         try {
             // Reads everything until we find a matching double quote
-            content = getAllBetween('\"', Token.SPECIAL_CHAR_WITHOUT_DOUBLE_QUOTE);
+            content = getAllBetween('\"', (c) -> Token.SPECIAL_CHAR_WITHOUT_DOUBLE_QUOTE.contains(c));
         } catch (Exception e) {
             // If we cannot find the closing quote, it's an error
             error('\"', startLine, startCol);
@@ -200,6 +201,37 @@ public class Tokeniser extends CompilerPass {
         int startLine = scanner.getLine();
         int startCol = scanner.getColumn();
 
+        // 0) Check comment
+        if (c == '/') {
+            if (!scanner.hasNext())
+                return nextToken();
+            char next = scanner.peek();
+            if (next == '/') { // single line comment
+                // consume the rest of the line
+                while (scanner.hasNext()) {
+                    char peeked = scanner.next();
+                    if (peeked == '\n') {
+                        break;
+                    }
+                }
+                return nextToken();
+            } else if (next == '*') {
+                // consume the rest of the comment
+                while (scanner.hasNext()) {
+                    char peeked = scanner.next();
+                    if (peeked == '*') {
+                        if (scanner.hasNext()) {
+                            char peeked2 = scanner.next();
+                            if (peeked2 == '/') {
+                                break;
+                            }
+                        }
+                    }
+                }
+                return nextToken();
+            }
+        }
+
         // 1) Check for character literal: starts with single quote (')
         if (c == '\'') {
             return parseCharLiteral(startLine, startCol);
@@ -262,6 +294,9 @@ public class Tokeniser extends CompilerPass {
             // 2) Write some test code into the file
             try (PrintWriter pw = new PrintWriter(new FileWriter(tempSource))) {
                 pw.println("#include smthg");
+                pw.println("#include smthg // ignore this");
+                pw.println("#include smthg /* ignore");
+                pw.println("*ignore/ this */");
                 pw.println("char c = 'a';");
                 pw.println("String s = \"Hello \\n World!\";");
                 pw.println("int x = 123;");
@@ -290,4 +325,5 @@ public class Tokeniser extends CompilerPass {
         } catch (IOException e) {
             e.printStackTrace();
         }
-    }}
+    }
+}
