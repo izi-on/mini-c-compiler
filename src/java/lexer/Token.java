@@ -197,21 +197,22 @@ public class Token {
         this(category, "", lineNum, colNum);
     }
 
+
+    public static boolean isStandardAlphanumeric(char ch) {
+        return Character.isDigit(ch) || (ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z');
+    }
+
+    // ONLY for a single char, beginning or not doesn't matter for this func
     public static boolean isValidVariableNameChar(char c) {
-        if (Character.isLetter(c) || c == '_') {
+        if (Token.isStandardAlphanumeric(c) || c == '_') {
             return true;
         }
-
-        if (Character.isDigit(c)) {
-            return true;
-        }
-
         return false;
     }
 
     public static boolean isValidVariableName(String name) {
         if (Character.isDigit(name.charAt(0))) return false;
-        for (int i = 1; i < name.length(); i++) {
+        for (int i = 0; i < name.length(); i++) {
             if (!isValidVariableNameChar(name.charAt(i))) return false;
         }
         return true;

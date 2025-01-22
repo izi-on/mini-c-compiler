@@ -72,8 +72,24 @@ public class Tokeniser extends CompilerPass {
         boolean escaped = false;
         while (scanner.hasNext()) {
             char next = scanner.next();
-
-
+            if (escaped) {
+                escaped = false;
+                content.append(next);
+                continue;
+            }
+            if (next == c) {
+                // We found the closing delimiter
+                break;
+            }
+            if (next == '\\') {
+                escaped = true;
+            } else {
+                escaped = false;
+            }
+            content.append(next);
+        }
+        escaped = false;
+        for (char next : content.toString().toCharArray()) {
             if (escaped) {
                 if (!Token.ESCAPABLE_CHARS.contains(next))
                     throw new Exception("Not a valid escape character");
@@ -82,15 +98,11 @@ public class Tokeniser extends CompilerPass {
             } else if (next == '\\') {
                 // Found an escape, so ignore next character's special meaning
                 escaped = true;
-            } else if (next == c) {
-                // We found the closing delimiter
-                return content.toString();
-            } else if (!(Character.isLetter(next) || Character.isDigit(next) || Character.isWhitespace(next) || isAllowed.test(next))) {
+            }  else if (!(Character.isLetter(next) || Character.isDigit(next) || Character.isWhitespace(next) || isAllowed.test(next))) {
                 throw new Exception("Invalid character: invalid token");
             }
-            content.append(next);
         }
-        throw new Exception("Reached end of input while looking for " + c);
+        return content.toString();
     }
 
     /**
@@ -166,10 +178,12 @@ public class Tokeniser extends CompilerPass {
         // A naive check: if the very first character is digit => parse integer
         // (be aware of edge cases, e.g., "123abc" — do you want to treat that as error?)
         String result = lexeme.toString();
-        if (Token.isValidVariableName(result))
+        if (Token.isValidVariableName(result)) {
             return new Token(Token.Category.IDENTIFIER, result, startLine, startCol);
-        else if (Token.isValidInt(result))
+        }
+        else if (Token.isValidInt(result)) {
             return new Token(Token.Category.INT_LITERAL, result, startLine, startCol);
+        }
         error(result.charAt(0), startLine, startCol);
         return new Token(Token.Category.INVALID, startLine, startCol);
     }
