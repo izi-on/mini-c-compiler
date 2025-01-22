@@ -198,8 +198,12 @@ public class Token {
     }
 
 
+    // Custom function to check if a character is a digit ('0' to '9')
+    private static boolean isDigit(char ch) {
+        return ch >= '0' && ch <= '9';
+    }
     public static boolean isStandardAlphanumeric(char ch) {
-        return Character.isDigit(ch) || (ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z');
+        return isDigit(ch) || (ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z');
     }
 
     // ONLY for a single char, beginning or not doesn't matter for this func
@@ -211,7 +215,7 @@ public class Token {
     }
 
     public static boolean isValidVariableName(String name) {
-        if (Character.isDigit(name.charAt(0))) return false;
+        if (isDigit(name.charAt(0))) return false;
         for (int i = 0; i < name.length(); i++) {
             if (!isValidVariableNameChar(name.charAt(i))) return false;
         }
@@ -220,7 +224,7 @@ public class Token {
 
     public static boolean isValidInt(String number) {
         for (int i = 0; i < number.length(); i++) {
-            if (!Character.isDigit(number.charAt(i))) return false;
+            if (!isDigit(number.charAt(i))) return false;
         }
         return true;
     }

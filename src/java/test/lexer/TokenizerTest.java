@@ -324,4 +324,28 @@ class TokeniserTest {
         assertTrue(tokens.get(2).position.getLine() >= 2,
                 "Expected '=' to be on line >= 2 due to newline.");
     }
-}
+
+    @Test
+    void testRandomInvalidCharacters(@TempDir Path tempDir) throws IOException {
+        // Another scenario: some bizarre characters that we expect to be invalid.
+        String code = "√∞ xyz@foo ??";
+        File sourceFile = tempDir.resolve("invalidCharsTest.c").toFile();
+        try (FileWriter fw = new FileWriter(sourceFile)) {
+            fw.write(code);
+        }
+
+        List<Token> tokens = tokenizeFile(sourceFile);
+
+        // Depending on how your scanner works, you might get multiple INVALID tokens
+        // or a single combined INVALID. We'll assume each unrecognized chunk yields a single INVALID.
+        // For example: "√∞" => INVALID, "xyz" => IDENTIFIER, "@" => INVALID, "foo" => IDENTIFIER, "??" => INVALID, then EOF
+        //
+        // Let's just check that we get at least one INVALID for the weird parts:
+        long invalidCount = tokens.stream()
+                .filter(t -> t.category == Category.INVALID)
+                .count();
+
+        assertTrue(invalidCount >= 3,
+                "Expected at least 3 INVALID tokens from the code '√∞ xyz@foo ??'. " +
+                        "But got: " + tokens);
+    }}
