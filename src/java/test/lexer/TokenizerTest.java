@@ -348,4 +348,138 @@ class TokeniserTest {
         assertTrue(invalidCount >= 3,
                 "Expected at least 3 INVALID tokens from the code '√∞ xyz@foo ??'. " +
                         "But got: " + tokens);
-    }}
+    }
+    @Test
+    void testUnclosedStringLiteral(@TempDir Path tempDir) throws IOException {
+        String code = "\"Hello World";
+        File sourceFile = tempDir.resolve("unclosedString.c").toFile();
+        try (FileWriter fw = new FileWriter(sourceFile)) {
+            fw.write(code);
+        }
+
+        List<Token> tokens = tokenizeFile(sourceFile);
+
+        // Depending on your lexer design, you might expect a single INVALID or partial string literal token.
+        // For example:
+        // - tokens[0] = INVALID   (with some data = "\"Hello World")
+        // - tokens[1] = EOF
+
+        System.out.println("--------------");
+        System.out.println(tokens.toString());
+        assertEquals(Category.INVALID, tokens.get(0).category);
+        assertEquals(Category.EOF, tokens.get(1).category);
+        assertEquals(2, tokens.size());
+    }
+
+    @Test
+    void testUnterminatedBlockComment(@TempDir Path tempDir) throws IOException {
+        String code = "int x; /* comment never ends";
+        File sourceFile = tempDir.resolve("unterminatedComment.c").toFile();
+        try (FileWriter fw = new FileWriter(sourceFile)) {
+            fw.write(code);
+        }
+
+        List<Token> tokens = tokenizeFile(sourceFile);
+
+        // Depending on your lexer's handling, you might get:
+        // int -> Category.INT
+        // x   -> Category.IDENTIFIER
+        // ;   -> Category.SC
+        // Then an INVALID token for the unterminated comment or perhaps you reach EOF with an error message.
+        // For example:
+        // tokens[0] = INT, tokens[1] = IDENTIFIER, tokens[2] = SC, tokens[3] = INVALID, tokens[4] = EOF
+
+        assertEquals(Category.INT, tokens.get(0).category);
+        assertEquals(Category.IDENTIFIER, tokens.get(1).category);
+        assertEquals(Category.SC, tokens.get(2).category);
+        assertEquals(Category.INVALID, tokens.get(3).category);
+        assertEquals(Category.EOF, tokens.get(4).category);
+        assertEquals(5, tokens.size());
+    }
+
+    @Test
+    void testVeryLargeIntegerLiteral(@TempDir Path tempDir) throws IOException {
+        // Something bigger than 32-bit integer range
+        String code = "9999999999999999";
+        File sourceFile = tempDir.resolve("bigInt.c").toFile();
+        try (FileWriter fw = new FileWriter(sourceFile)) {
+            fw.write(code);
+        }
+
+        List<Token> tokens = tokenizeFile(sourceFile);
+
+        // If your spec says all digit sequences are INT_LITERAL (and you handle overflow later),
+        // then you'd expect one INT_LITERAL + EOF.
+        // Otherwise, you might produce INVALID if it’s out of range.
+
+        assertEquals(Category.INT_LITERAL, tokens.get(0).category);
+        assertEquals("9999999999999999", tokens.get(0).data);
+        assertEquals(Category.EOF, tokens.get(1).category);
+        assertEquals(2, tokens.size());
+    }
+
+    @Test
+    void testMultipleAdjacentInvalidCharacters(@TempDir Path tempDir) throws IOException {
+        // The characters '¥' and '₹' and '±' might be out of range for ASCII-based tokens.
+        String code = "¥₹± validIdentifier";
+        File sourceFile = tempDir.resolve("adjInvalid.c").toFile();
+        try (FileWriter fw = new FileWriter(sourceFile)) {
+            fw.write(code);
+        }
+
+        List<Token> tokens = tokenizeFile(sourceFile);
+
+        // Depending on implementation:
+        // - Possibly one INVALID token for each symbol: INVALID, INVALID, INVALID, IDENTIFIER, EOF
+        // or you group them: INVALID (for '¥₹±'), IDENTIFIER, EOF
+
+        // We just expect there's at least one INVALID followed by a valid IDENTIFIER.
+        int invalidCount = (int) tokens.stream()
+                .filter(t -> t.category == Category.INVALID)
+                .count();
+        assertTrue(invalidCount >= 1);
+        assertEquals(Category.IDENTIFIER, tokens.get(invalidCount).category);
+        assertEquals(Category.EOF, tokens.get(invalidCount + 1).category);
+    }
+
+    @Test
+    void testCombinedSnippet(@TempDir Path tempDir) throws IOException {
+        String code =
+                "#include <stdio.h>\n"
+                        + "int main() {\n"
+                        + "    // single-line comment\n"
+                        + "    /* multi-line\n"
+                        + "       comment */\n"
+                        + "    char *str = \"Hello \\\"World\\\"\";\n"
+                        + "    int x = 0xFF;\n"
+                        + "    if (x == 255) {\n"
+                        + "        return 0;\n"
+                        + "    } else {\n"
+                        + "        return -1;\n"
+                        + "    }\n"
+                        + "}\n";
+
+        File sourceFile = tempDir.resolve("combinedSnippet.c").toFile();
+        try (FileWriter fw = new FileWriter(sourceFile)) {
+            fw.write(code);
+        }
+
+        List<Token> tokens = tokenizeFile(sourceFile);
+
+        // Then you can systematically verify all tokens.
+        // Example checks:
+        assertEquals(Category.INCLUDE, tokens.get(0).category); // #include
+        assertEquals("<stdio.h>",     tokens.get(1).data);      // Possibly how you handle #include <...>
+        // ...
+        // Eventually you'll see INT, IDENTIFIER (main), LPAR, RPAR, LBRA, ...
+        // ...
+        // Make sure comments are skipped entirely.
+        // ...
+        // And so on, up to EOF.
+
+        // Instead of matching each token 1:1 (which can be quite long),
+        // you might just check partial sequences or spot-check certain tricky parts.
+        // e.g. verify that "0xFF" is recognized as an INT_LITERAL with "0xFF",
+        // that the string literal is recognized, etc.
+    }
+}
