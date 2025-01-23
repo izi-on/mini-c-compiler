@@ -70,6 +70,7 @@ public class Tokeniser extends CompilerPass {
     private String getAllBetween(Character c, Predicate<Character> isAllowed) throws Exception {
         StringBuilder content = new StringBuilder();
         boolean escaped = false;
+        boolean found = false;
         while (scanner.hasNext()) {
             char next = scanner.next();
             if (escaped) {
@@ -79,6 +80,7 @@ public class Tokeniser extends CompilerPass {
             }
             if (next == c) {
                 // We found the closing delimiter
+                found = true;
                 break;
             }
             if (next == '\\') {
@@ -87,6 +89,9 @@ public class Tokeniser extends CompilerPass {
                 escaped = false;
             }
             content.append(next);
+        }
+        if (!found) {
+            throw new Exception("Matching character not found");
         }
         escaped = false;
         for (char next : content.toString().toCharArray()) {
