@@ -1,11 +1,16 @@
 package parser;
 
 
+import lexer.Scanner;
 import lexer.Token;
 import lexer.Token.Category;
 import lexer.Tokeniser;
 import util.CompilerPass;
 
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.IOException;
 import java.util.LinkedList;
 import java.util.Queue;
 
@@ -215,7 +220,7 @@ public class Parser  extends CompilerPass {
     private void parseMatrixSqrBrckts() {
         while (accept(Category.LSBR)) {
             nextToken();
-            expect(Category.INT);
+            expect(Category.INT_LITERAL);
             expect(Category.RSBR);
         }
     }
@@ -509,6 +514,22 @@ public class Parser  extends CompilerPass {
             expect(Category.RPAR);
         }
         // else it's just a variable usage; no further tokens
+    }
+
+    public static void main(String[] args) {
+        System.out.println(System.getProperty("user.dir"));
+        String filename = "src/java/test/fibonacci.c";
+        try {
+            File file = new File(filename);
+            Scanner scanner = new Scanner(file);
+            Tokeniser tokeniser = new Tokeniser(scanner);
+            Parser p = new Parser(tokeniser);
+            p.parse();
+
+        } catch (IOException e) {
+            System.err.println("Error reading file: " + filename);
+            e.printStackTrace();
+        }
     }
 
 }
