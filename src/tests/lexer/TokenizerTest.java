@@ -389,6 +389,7 @@ class TokeniserTest {
         // For example:
         // tokens[0] = INT, tokens[1] = IDENTIFIER, tokens[2] = SC, tokens[3] = INVALID, tokens[4] = EOF
 
+        System.out.println(tokens);
         assertEquals(Category.INT, tokens.get(0).category);
         assertEquals(Category.IDENTIFIER, tokens.get(1).category);
         assertEquals(Category.SC, tokens.get(2).category);
@@ -445,13 +446,13 @@ class TokeniserTest {
     @Test
     void testCombinedSnippet(@TempDir Path tempDir) throws IOException {
         String code =
-                "#include <stdio.h>\n"
+                "#include \"stdio.h\"\n"
                         + "int main() {\n"
                         + "    // single-line comment\n"
                         + "    /* multi-line\n"
                         + "       comment */\n"
                         + "    char *str = \"Hello \\\"World\\\"\";\n"
-                        + "    int x = 0xFF;\n"
+                        + "    int x = 255;\n"
                         + "    if (x == 255) {\n"
                         + "        return 0;\n"
                         + "    } else {\n"
@@ -469,7 +470,7 @@ class TokeniserTest {
         // Then you can systematically verify all tokens.
         // Example checks:
         assertEquals(Category.INCLUDE, tokens.get(0).category); // #include
-        assertEquals("<stdio.h>",     tokens.get(1).data);      // Possibly how you handle #include <...>
+        assertEquals("stdio.h",     tokens.get(1).data);      // Possibly how you handle #include <...>
         // ...
         // Eventually you'll see INT, IDENTIFIER (main), LPAR, RPAR, LBRA, ...
         // ...

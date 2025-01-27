@@ -236,16 +236,22 @@ public class Tokeniser extends CompilerPass {
                 return nextToken();
             } else if (next == '*') {
                 // consume the rest of the comment
+                boolean ends = false;
                 while (scanner.hasNext()) {
                     char peeked = scanner.next();
                     if (peeked == '*') {
                         if (scanner.hasNext()) {
                             char peeked2 = scanner.next();
                             if (peeked2 == '/') {
+                                ends = true;
                                 break;
                             }
                         }
                     }
+                }
+                if (!ends) {
+                    error('/', startLine, startCol);
+                    return new Token(Token.Category.INVALID, startLine, startCol);
                 }
                 return nextToken();
             }

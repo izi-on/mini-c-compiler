@@ -30,7 +30,7 @@ If similar code is found between two (or more) students, we will not try to figu
 
 # Scoreboard #
 
-We automatically run a series of test programs using your compiler about twice a day.
+We automatically run a series of tests programs using your compiler about twice a day.
 You can keep track of your progress and see how many tests pass/fail using the scoreboard (link will be available on the course website).
 The scoreboard **is provided as a best effort service**, do not rely on it as it may come down unexpectedly:no guarantees are offered.
 
@@ -46,7 +46,7 @@ the software should be directly available from your distribution package manager
 
 ## Java Development Kit (JDK) ##
 
-You can test if you already have Java development kit installed by typing:
+You can tests if you already have Java development kit installed by typing:
 ```
 javac -version
 ``` 
@@ -59,7 +59,7 @@ Otherwise, follow the link below for instructions on how to install manually the
 
 In this course, we will use Apache Ant as the build system.
 Again, if you are using a CS lab machine, this software should already be installed.
-If you are using your machine, you can test if the software is there by typing:
+If you are using your machine, you can tests if the software is there by typing:
 ```
 ant -version
 ``` 
@@ -71,7 +71,7 @@ In case Ant is not installed on your system, you can install it manually followi
 
 ## Git ##
 
-To test if git is already installed on your machine, type:
+To tests if git is already installed on your machine, type:
 
 ```
 git --version
@@ -82,7 +82,7 @@ If this is not the case, you can follow this link with instructions on how to in
 
 # Marking #
 
-The marking will be done using an automated test suite on a Linux machine using Java 21.
+The marking will be done using an automated tests suite on a Linux machine using Java 21.
 Please note that you are not allowed to modify the `MainX.java` files which is the main entry point to the compiler.
 The `MainX.java` will be replaced by our own when we run the automarker.
 Also make sure that the build script provided remains unchanged so that your project can be built on our machine.
@@ -94,7 +94,7 @@ For all parts of the coursework, the marking will be a function of the number of
 
 ## Score
 2/3 (66.6%) of the mark will be determined by the scoreboard tests and 1/3 (33.3%) will be determined by the hidden tests.
-You will get 1 point for each passing test, and -1 for each failing test if the test is binary (i.e. tests whether the input progam is valid or invalid).
+You will get 1 point for each passing tests, and -1 for each failing tests if the tests is binary (i.e. tests whether the input progam is valid or invalid).
 Then, the mark is calculated by dividing the number of points achieved by the number of tests.
 The hidden tests are marked independently of the visible ones.
 
@@ -261,11 +261,11 @@ We suggest you follow the excelent [tutorial](https://www.atlassian.com/git/tuto
 
 We have set up the build.xml in a way that should allow you to use unit testing easily.
 
-You should be able to add a src/test directory (that is, a directory named test right inside the src directory) and have these files ignored by ant (and thus ignored by the automarker).
+You should be able to add a src/tests directory (that is, a directory named tests right inside the src directory) and have these files ignored by ant (and thus ignored by the automarker).
 The purpose of this directory is for you to be able to add unit tests to verify your code.
 Files in this directory will be permitted to use any external libraries, but please ensure that no part of the compiler itself uses any external libraries as this is not allowed.
 Note that unit tests are strictly optional and will not be evaluated, but are highly recommended!
-When writing compilers, having a good automated test suite is worth its weight in gold.
+When writing compilers, having a good automated tests suite is worth its weight in gold.
 
 Furthermore, do not modify the build.xml file yourself.
 The automarker will replace this file when it runs to ensure that your compiler builds without any external dependencies (or if you did modify your build.xml, be aware that it will be replaced by the automarker with the orignal one).

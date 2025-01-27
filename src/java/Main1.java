@@ -65,6 +65,8 @@ public class Main1 {
     public static void compile(String[] args) {
 
         ensureArgExists(args, 0);
+        String projectRoot = System.getProperty("user.dir");
+        System.out.println("Project root directory: " + projectRoot);
 
         Mode mode = null;
         int curArgCnt = 0;
