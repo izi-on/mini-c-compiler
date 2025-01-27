@@ -49,4 +49,55 @@ addressof    ::= "&" exp                          # Address-of operator
 sizeof       ::= "sizeof" "(" type ")"            # size of type
 typecast     ::= "(" type ")" exp                 # type casting
 
+_______________________________________
+LEFT-PARSEABLE:
 
+program    ::= (include)* (structdecl | vardec_funcdec_or_funcdef)* EOF
+
+include    ::= "#include" STRING_LITERAL
+
+structdecl ::= structtype "{" (vardecl)+ "}" ";"    # structure declaration
+
+structtype ::= "struct" IDENT
+
+vardec_funcdec_or_funcdef ::= type IDENT (vardecl | func_def_or_decl)
+
+matrix_brackets ::= ("[" INT_LITERAL "]")*
+
+vardecl    ::=  matrix_brackets ";"
+
+func_def_or_decl ::= "(" params ")" (block | ";")
+
+type       ::= ("int" | "char" | "void" | structtype) ("*")*
+
+params     ::= [ type IDENT matrix_brackets ("," type IDENT matrix_brackets)* ]
+
+stmt       ::= block
+             | "while" "(" exp ")" stmt              # while loop
+             | "if" "(" exp ")" stmt ["else" stmt]   # if then else
+             | "return" [exp] ";"                    # return
+             | exp ";"                               # expression statement, e.g. a function call
+             | "continue" ";"                        # continue
+             | "break" ";"                           # break
+
+block      ::= "{" (type IDENT vardecl)* (stmt)* "}"
+
+exp        ::= "(" ( exp ")" | type ")" exp ) exp'
+             | INT_LITERAL exp'
+             | func_call_or_var exp'
+             | ("-" | "+") exp exp'
+             | CHAR_LITERAL exp'
+             | STRING_LITERAL exp'
+             | valueat exp'
+             | addressof exp'
+             | sizeof exp'
+exp' ::= "=" exp exp'
+    | "[" exp "]" exp'
+    | "." IDENT exp'
+    | (">" | "<" | ">=" | "<=" | "!=" | "==" | "+" | "-" | "/" | "*" | "%" | "||" | "&&") exp exp'
+    | ε
+
+func_call_or_var  ::= IDENT ["(" [ exp ("," exp)* ] ")"]
+valueat      ::= "*" exp                          # Value at operator (pointer indirection)
+addressof    ::= "&" exp                          # Address-of operator
+sizeof       ::= "sizeof" "(" type ")"            # size of type
