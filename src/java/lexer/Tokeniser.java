@@ -222,6 +222,7 @@ public class Tokeniser extends CompilerPass {
 
         // 0) Check comment
         if (c == '/') {
+            System.out.println("Found /");
             if (!scanner.hasNext())
                 return nextToken();
             char next = scanner.peek();
@@ -250,7 +251,7 @@ public class Tokeniser extends CompilerPass {
                     }
                 }
                 if (!ends) {
-                    error('/', startLine, startCol);
+                    System.out.println("Doesn't end");
                     return new Token(Token.Category.INVALID, startLine, startCol);
                 }
                 return nextToken();
@@ -297,7 +298,11 @@ public class Tokeniser extends CompilerPass {
         }
 
         // After consuming as much as possible, check if we ended on a valid symbol
-        if (trieCursor != null && trieCursor.isEnd()) {
+        // edge case: if a symbol is a prefix of an identifier
+        char nextChar = scanner.hasNext() ? scanner.peek() : '\0';
+        boolean isIdentifier = Token.isValidVariableName(symbolBuilder.toString() + nextChar);
+
+        if (trieCursor != null && trieCursor.isEnd() && !isIdentifier) {
             // Return a token for the matched symbol
             return new Token(trieCursor.getTokenCategory(), startLine, startCol);
         } else {

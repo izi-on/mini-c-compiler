@@ -65,6 +65,32 @@ class TokeniserTest {
     }
 
     @Test
+    void testPrefixIsSymbol(@TempDir Path tempDir) throws IOException {
+        String code = "ifabc";
+        File sourceFile = tempDir.resolve("symbolAsPrefix.c").toFile();
+        try (FileWriter fw = new FileWriter(sourceFile)) {
+            fw.write(code);
+        }
+
+        List<Token> tokens = tokenizeFile(sourceFile);
+
+        // We expect: EQ, NE, LE, GE, LOGAND, LOGOR
+        Category[] expectedCategories = {
+                Category.IDENTIFIER,
+                Category.EOF,
+        };
+
+        System.out.println(tokens);
+
+        assertEquals(expectedCategories.length, tokens.size());
+        for (int i = 0; i < expectedCategories.length; i++) {
+            assertEquals(expectedCategories[i], tokens.get(i).category,
+                    "Token " + i + " mismatch in test.");
+        }
+    }
+
+
+    @Test
     void testMultiCharacterSymbols(@TempDir Path tempDir) throws IOException {
         String code = "== != <= >= && ||";
         File sourceFile = tempDir.resolve("multiSymbols.c").toFile();
