@@ -89,6 +89,431 @@ class TokeniserTest {
         }
     }
 
+    /**
+     * 1) Test that "ifabc" is recognized as a single identifier
+     *    rather than (IF, IDENTIFIER(abc)).
+     */
+    @Test
+    void testIfKeywordPrefix(@TempDir Path tempDir) throws IOException {
+        String code = "ifabc";
+        File sourceFile = tempDir.resolve("ifKeywordPrefix.c").toFile();
+        try (FileWriter fw = new FileWriter(sourceFile)) {
+            fw.write(code);
+        }
+
+        List<Token> tokens = tokenizeFile(sourceFile);
+
+        Category[] expectedCategories = {
+                Category.IDENTIFIER,
+                Category.EOF
+        };
+
+        assertEquals(expectedCategories.length, tokens.size(),
+                "Number of tokens should match expected.");
+        for (int i = 0; i < expectedCategories.length; i++) {
+            assertEquals(expectedCategories[i], tokens.get(i).category,
+                    "Token " + i + " mismatch in testIfKeywordPrefix.");
+        }
+    }
+
+    /**
+     * 2) Test that "whileabc" is recognized as a single identifier
+     *    rather than (WHILE, IDENTIFIER(abc)).
+     */
+    @Test
+    void testWhileKeywordPrefix(@TempDir Path tempDir) throws IOException {
+        String code = "whileabc";
+        File sourceFile = tempDir.resolve("whileKeywordPrefix.c").toFile();
+        try (FileWriter fw = new FileWriter(sourceFile)) {
+            fw.write(code);
+        }
+
+        List<Token> tokens = tokenizeFile(sourceFile);
+
+        Category[] expectedCategories = {
+                Category.IDENTIFIER,
+                Category.EOF
+        };
+
+        assertEquals(expectedCategories.length, tokens.size(),
+                "Number of tokens should match expected.");
+        for (int i = 0; i < expectedCategories.length; i++) {
+            assertEquals(expectedCategories[i], tokens.get(i).category,
+                    "Token " + i + " mismatch in testWhileKeywordPrefix.");
+        }
+    }
+
+    /**
+     * 3) Test that "returnabc" is recognized as a single identifier
+     *    rather than (RETURN, IDENTIFIER(abc)).
+     */
+    @Test
+    void testReturnKeywordPrefix(@TempDir Path tempDir) throws IOException {
+        String code = "returnabc";
+        File sourceFile = tempDir.resolve("returnKeywordPrefix.c").toFile();
+        try (FileWriter fw = new FileWriter(sourceFile)) {
+            fw.write(code);
+        }
+
+        List<Token> tokens = tokenizeFile(sourceFile);
+
+        Category[] expectedCategories = {
+                Category.IDENTIFIER,
+                Category.EOF
+        };
+
+        assertEquals(expectedCategories.length, tokens.size(),
+                "Number of tokens should match expected.");
+        for (int i = 0; i < expectedCategories.length; i++) {
+            assertEquals(expectedCategories[i], tokens.get(i).category,
+                    "Token " + i + " mismatch in testReturnKeywordPrefix.");
+        }
+    }
+
+    /**
+     * 4) Test that "elseabc" is recognized as a single identifier
+     *    rather than (ELSE, IDENTIFIER(abc)).
+     */
+    @Test
+    void testElseKeywordPrefix(@TempDir Path tempDir) throws IOException {
+        String code = "elseabc";
+        File sourceFile = tempDir.resolve("elseKeywordPrefix.c").toFile();
+        try (FileWriter fw = new FileWriter(sourceFile)) {
+            fw.write(code);
+        }
+
+        List<Token> tokens = tokenizeFile(sourceFile);
+
+        Category[] expectedCategories = {
+                Category.IDENTIFIER,
+                Category.EOF
+        };
+
+        assertEquals(expectedCategories.length, tokens.size(),
+                "Number of tokens should match expected.");
+        for (int i = 0; i < expectedCategories.length; i++) {
+            assertEquals(expectedCategories[i], tokens.get(i).category,
+                    "Token " + i + " mismatch in testElseKeywordPrefix.");
+        }
+    }
+
+    /**
+     * 5) Test that "charabc" is recognized as a single identifier
+     *    rather than (CHAR, IDENTIFIER(abc)).
+     */
+    @Test
+    void testCharKeywordPrefix(@TempDir Path tempDir) throws IOException {
+        String code = "charabc";
+        File sourceFile = tempDir.resolve("charKeywordPrefix.c").toFile();
+        try (FileWriter fw = new FileWriter(sourceFile)) {
+            fw.write(code);
+        }
+
+        List<Token> tokens = tokenizeFile(sourceFile);
+
+        Category[] expectedCategories = {
+                Category.IDENTIFIER,
+                Category.EOF
+        };
+
+        assertEquals(expectedCategories.length, tokens.size(),
+                "Number of tokens should match expected.");
+        for (int i = 0; i < expectedCategories.length; i++) {
+            assertEquals(expectedCategories[i], tokens.get(i).category,
+                    "Token " + i + " mismatch in testCharKeywordPrefix.");
+        }
+    }
+
+    /**
+     * 6) Test that "intabc" is recognized as a single identifier
+     *    rather than (INT, IDENTIFIER(abc)).
+     */
+    @Test
+    void testIntKeywordPrefix(@TempDir Path tempDir) throws IOException {
+        String code = "intabc";
+        File sourceFile = tempDir.resolve("intKeywordPrefix.c").toFile();
+        try (FileWriter fw = new FileWriter(sourceFile)) {
+            fw.write(code);
+        }
+
+        List<Token> tokens = tokenizeFile(sourceFile);
+
+        Category[] expectedCategories = {
+                Category.IDENTIFIER,
+                Category.EOF
+        };
+
+        assertEquals(expectedCategories.length, tokens.size(),
+                "Number of tokens should match expected.");
+        for (int i = 0; i < expectedCategories.length; i++) {
+            assertEquals(expectedCategories[i], tokens.get(i).category,
+                    "Token " + i + " mismatch in testIntKeywordPrefix.");
+        }
+    }
+
+    /**
+     * 7) Test that "voidabc" is recognized as a single identifier
+     *    rather than (VOID, IDENTIFIER(abc)).
+     */
+    @Test
+    void testVoidKeywordPrefix(@TempDir Path tempDir) throws IOException {
+        String code = "voidabc";
+        File sourceFile = tempDir.resolve("voidKeywordPrefix.c").toFile();
+        try (FileWriter fw = new FileWriter(sourceFile)) {
+            fw.write(code);
+        }
+
+        List<Token> tokens = tokenizeFile(sourceFile);
+
+        Category[] expectedCategories = {
+                Category.IDENTIFIER,
+                Category.EOF
+        };
+
+        assertEquals(expectedCategories.length, tokens.size(),
+                "Number of tokens should match expected.");
+        for (int i = 0; i < expectedCategories.length; i++) {
+            assertEquals(expectedCategories[i], tokens.get(i).category,
+                    "Token " + i + " mismatch in testVoidKeywordPrefix.");
+        }
+    }
+
+    /**
+     * 8) Test that "structabc" is recognized as a single identifier
+     *    rather than (STRUCT, IDENTIFIER(abc)).
+     */
+    @Test
+    void testStructKeywordPrefix(@TempDir Path tempDir) throws IOException {
+        String code = "structabc";
+        File sourceFile = tempDir.resolve("structKeywordPrefix.c").toFile();
+        try (FileWriter fw = new FileWriter(sourceFile)) {
+            fw.write(code);
+        }
+
+        List<Token> tokens = tokenizeFile(sourceFile);
+
+        Category[] expectedCategories = {
+                Category.IDENTIFIER,
+                Category.EOF
+        };
+
+        assertEquals(expectedCategories.length, tokens.size(),
+                "Number of tokens should match expected.");
+        for (int i = 0; i < expectedCategories.length; i++) {
+            assertEquals(expectedCategories[i], tokens.get(i).category,
+                    "Token " + i + " mismatch in testStructKeywordPrefix.");
+        }
+    }
+
+    /**
+     * 9) Test that "sizeofabc" is recognized as a single identifier
+     *    rather than (SIZEOF, IDENTIFIER(abc)).
+     */
+    @Test
+    void testSizeofKeywordPrefix(@TempDir Path tempDir) throws IOException {
+        String code = "sizeofabc";
+        File sourceFile = tempDir.resolve("sizeofKeywordPrefix.c").toFile();
+        try (FileWriter fw = new FileWriter(sourceFile)) {
+            fw.write(code);
+        }
+
+        List<Token> tokens = tokenizeFile(sourceFile);
+
+        Category[] expectedCategories = {
+                Category.IDENTIFIER,
+                Category.EOF
+        };
+
+        assertEquals(expectedCategories.length, tokens.size(),
+                "Number of tokens should match expected.");
+        for (int i = 0; i < expectedCategories.length; i++) {
+            assertEquals(expectedCategories[i], tokens.get(i).category,
+                    "Token " + i + " mismatch in testSizeofKeywordPrefix.");
+        }
+    }
+
+    /**
+     * 10) Test that "breakabc" is recognized as a single identifier
+     *     rather than (BREAK, IDENTIFIER(abc)).
+     */
+    @Test
+    void testBreakKeywordPrefix(@TempDir Path tempDir) throws IOException {
+        String code = "breakabc";
+        File sourceFile = tempDir.resolve("breakKeywordPrefix.c").toFile();
+        try (FileWriter fw = new FileWriter(sourceFile)) {
+            fw.write(code);
+        }
+
+        List<Token> tokens = tokenizeFile(sourceFile);
+
+        Category[] expectedCategories = {
+                Category.IDENTIFIER,
+                Category.EOF
+        };
+
+        assertEquals(expectedCategories.length, tokens.size(),
+                "Number of tokens should match expected.");
+        for (int i = 0; i < expectedCategories.length; i++) {
+            assertEquals(expectedCategories[i], tokens.get(i).category,
+                    "Token " + i + " mismatch in testBreakKeywordPrefix.");
+        }
+    }
+
+    /**
+     * 11) Test that "continueabc" is recognized as a single identifier
+     *     rather than (CONTINUE, IDENTIFIER(abc)).
+     */
+    @Test
+    void testContinueKeywordPrefix(@TempDir Path tempDir) throws IOException {
+        String code = "continueabc";
+        File sourceFile = tempDir.resolve("continueKeywordPrefix.c").toFile();
+        try (FileWriter fw = new FileWriter(sourceFile)) {
+            fw.write(code);
+        }
+
+        List<Token> tokens = tokenizeFile(sourceFile);
+
+        Category[] expectedCategories = {
+                Category.IDENTIFIER,
+                Category.EOF
+        };
+
+        assertEquals(expectedCategories.length, tokens.size(),
+                "Number of tokens should match expected.");
+        for (int i = 0; i < expectedCategories.length; i++) {
+            assertEquals(expectedCategories[i], tokens.get(i).category,
+                    "Token " + i + " mismatch in testContinueKeywordPrefix.");
+        }
+    }
+
+    /* -----------------------------------------------------------------------
+     * Now test cases where we have a real multi-character operator
+     * (like '>=' or '==' or '&&' or '||'), ensuring they remain separate
+     * from a subsequent identifier.
+     * e.g., ">=abc" => GE, IDENTIFIER(abc), not IDENTIFIER(>=abc).
+     * -----------------------------------------------------------------------
+     */
+
+    @Test
+    void testGreaterEqualThenIdentifier(@TempDir Path tempDir) throws IOException {
+        String code = ">=abc";
+        File sourceFile = tempDir.resolve("geIdentifier.c").toFile();
+        try (FileWriter fw = new FileWriter(sourceFile)) {
+            fw.write(code);
+        }
+
+        List<Token> tokens = tokenizeFile(sourceFile);
+
+        Category[] expectedCategories = {
+                Category.GE,
+                Category.IDENTIFIER,
+                Category.EOF
+        };
+
+        assertEquals(expectedCategories.length, tokens.size(),
+                "Number of tokens should match expected.");
+        for (int i = 0; i < expectedCategories.length; i++) {
+            assertEquals(expectedCategories[i], tokens.get(i).category,
+                    "Token " + i + " mismatch in testGreaterEqualThenIdentifier.");
+        }
+    }
+
+    @Test
+    void testEqualEqualThenIdentifier(@TempDir Path tempDir) throws IOException {
+        String code = "==xyz";
+        File sourceFile = tempDir.resolve("eqEqIdentifier.c").toFile();
+        try (FileWriter fw = new FileWriter(sourceFile)) {
+            fw.write(code);
+        }
+
+        List<Token> tokens = tokenizeFile(sourceFile);
+
+        Category[] expectedCategories = {
+                Category.EQ,
+                Category.IDENTIFIER,
+                Category.EOF
+        };
+
+        assertEquals(expectedCategories.length, tokens.size(),
+                "Number of tokens should match expected.");
+        for (int i = 0; i < expectedCategories.length; i++) {
+            assertEquals(expectedCategories[i], tokens.get(i).category,
+                    "Token " + i + " mismatch in testEqualEqualThenIdentifier.");
+        }
+    }
+
+    @Test
+    void testNotEqualThenIdentifier(@TempDir Path tempDir) throws IOException {
+        String code = "!=myVar";
+        File sourceFile = tempDir.resolve("notEqIdentifier.c").toFile();
+        try (FileWriter fw = new FileWriter(sourceFile)) {
+            fw.write(code);
+        }
+
+        List<Token> tokens = tokenizeFile(sourceFile);
+
+        Category[] expectedCategories = {
+                Category.NE,
+                Category.IDENTIFIER,
+                Category.EOF
+        };
+
+        assertEquals(expectedCategories.length, tokens.size(),
+                "Number of tokens should match expected.");
+        for (int i = 0; i < expectedCategories.length; i++) {
+            assertEquals(expectedCategories[i], tokens.get(i).category,
+                    "Token " + i + " mismatch in testNotEqualThenIdentifier.");
+        }
+    }
+
+    @Test
+    void testLogicalAndThenIdentifier(@TempDir Path tempDir) throws IOException {
+        String code = "&&var";
+        File sourceFile = tempDir.resolve("logAndIdentifier.c").toFile();
+        try (FileWriter fw = new FileWriter(sourceFile)) {
+            fw.write(code);
+        }
+
+        List<Token> tokens = tokenizeFile(sourceFile);
+
+        Category[] expectedCategories = {
+                Category.LOGAND,
+                Category.IDENTIFIER,
+                Category.EOF
+        };
+
+        assertEquals(expectedCategories.length, tokens.size(),
+                "Number of tokens should match expected.");
+        for (int i = 0; i < expectedCategories.length; i++) {
+            assertEquals(expectedCategories[i], tokens.get(i).category,
+                    "Token " + i + " mismatch in testLogicalAndThenIdentifier.");
+        }
+    }
+
+    @Test
+    void testLogicalOrThenIdentifier(@TempDir Path tempDir) throws IOException {
+        String code = "||abc123";
+        File sourceFile = tempDir.resolve("logOrIdentifier.c").toFile();
+        try (FileWriter fw = new FileWriter(sourceFile)) {
+            fw.write(code);
+        }
+
+        List<Token> tokens = tokenizeFile(sourceFile);
+
+        Category[] expectedCategories = {
+                Category.LOGOR,
+                Category.IDENTIFIER,
+                Category.EOF
+        };
+
+        assertEquals(expectedCategories.length, tokens.size(),
+                "Number of tokens should match expected.");
+        for (int i = 0; i < expectedCategories.length; i++) {
+            assertEquals(expectedCategories[i], tokens.get(i).category,
+                    "Token " + i + " mismatch in testLogicalOrThenIdentifier.");
+        }
+    }
+
 
     @Test
     void testMultiCharacterSymbols(@TempDir Path tempDir) throws IOException {
