@@ -222,7 +222,6 @@ public class Tokeniser extends CompilerPass {
 
         // 0) Check comment
         if (c == '/') {
-            System.out.println("Found /");
             if (!scanner.hasNext())
                 return nextToken();
             char next = scanner.peek();
