@@ -1,7 +1,6 @@
 import lexer.Scanner;
 import lexer.Token;
 import lexer.Tokeniser;
-import parser.Parser;
 
 import java.io.*;
 

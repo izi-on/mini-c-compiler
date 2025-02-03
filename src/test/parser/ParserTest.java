@@ -8,7 +8,6 @@ import java.io.*;
 
 import lexer.Scanner;
 import lexer.Tokeniser;
-import parser.Parser;
 
 public class ParserTest {
 
