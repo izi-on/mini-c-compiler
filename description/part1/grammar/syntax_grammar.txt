@@ -44,60 +44,58 @@ exp        ::= "(" exp ")"
 funcall      ::= IDENT "(" [ exp ("," exp)* ] ")" # function call
 arrayaccess  ::= exp "[" exp "]"                  # array access
 fieldaccess  ::= exp "." IDENT                    # structure field member access
+
 valueat      ::= "*" exp                          # Value at operator (pointer indirection)
 addressof    ::= "&" exp                          # Address-of operator
-sizeof       ::= "sizeof" "(" type ")"            # size of type
-typecast     ::= "(" type ")" exp                 # type casting
 
-_______________________________________
-LEFT-PARSEABLE:
+_________________________________________
+UNAMBIGUOUS GRAMMAR
 
-program    ::= (include)* (structdecl | vardec_funcdec_or_funcdef)* EOF
+program    ::= (include)* (structdecl | vardecl_funcdef_or_funcdecl)* EOF
 
 include    ::= "#include" STRING_LITERAL
 
 structdecl ::= structtype "{" (vardecl)+ "}" ";"    # structure declaration
+vardecl    ::= type IDENT ("[" INT_LITERAL "]")* ";" # variable declaration, (e.g. int a;), or multi-dimensional array declaration, (e.g. int a[2][5];)
+
+vardecl_funcdef_or_funcdecl ::= type IDENT (is_vardecl | is_fundef_or_fundecl)
+is_vardecl    ::= ("[" INT_LITERAL "]")* ";" # variable declaration, (e.g. int a;), or multi-dimensional array declaration, (e.g. int a[2][5];)
+is_fundef_or_fundecl ::= "(" params ")" (block | ";")
 
 structtype ::= "struct" IDENT
 
-vardec_funcdec_or_funcdef ::= type IDENT (vardecl | func_def_or_decl)
+params     ::= [ type IDENT ("[" INT_LITERAL "]")* ("," type IDENT ("[" INT_LITERAL "]")*)* ]
 
-matrix_brackets ::= ("[" INT_LITERAL "]")*
-
-vardecl    ::=  matrix_brackets ";"
-
-func_def_or_decl ::= "(" params ")" (block | ";")
-
-type       ::= ("int" | "char" | "void" | structtype) ("*")*
-
-params     ::= [ type IDENT matrix_brackets ("," type IDENT matrix_brackets)* ]
-
-stmt       ::= block
+stmt ::= ifStmnt | nonIfStmnt
+nonIfStmt    ::= block
              | "while" "(" exp ")" stmt              # while loop
-             | "if" "(" exp ")" stmt ["else" stmt]   # if then else
              | "return" [exp] ";"                    # return
              | exp ";"                               # expression statement, e.g. a function call
              | "continue" ";"                        # continue
              | "break" ";"                           # break
+ifStmtStart ::= "if" "(" exp ")" withOrWithoutElse
+withOrWithoutElse ::= stmt
+            | withElse "else" stmt
+withElse ::= if "(" exp ")" withElse "else" withElse
+            | nonIfStmt
 
-block      ::= "{" (type IDENT vardecl)* (stmt)* "}"
+block      ::= "{" (vardecl)* (stmt)* "}"
 
-exp        ::= "(" ( exp ")" | type ")" exp ) exp'
-             | INT_LITERAL exp'
-             | func_call_or_var exp'
-             | ("-" | "+") exp exp'
-             | CHAR_LITERAL exp'
-             | STRING_LITERAL exp'
-             | valueat exp'
-             | addressof exp'
-             | sizeof exp'
-exp' ::= "=" exp exp'
-    | "[" exp "]" exp'
-    | "." IDENT exp'
-    | (">" | "<" | ">=" | "<=" | "!=" | "==" | "+" | "-" | "/" | "*" | "%" | "||" | "&&") exp exp'
-    | ε
+exp ::= exp1 "=" (exp | exp1)
+exp1 ::= exp2 ("||" exp2)*
+exp2 ::= exp3 ("&&" exp3)*
+exp3 ::= exp4 (("==" | "!=") exp4)*
+exp4 ::= exp5 ((">" | "<" | ">=" | "<=") exp5)*
+exp5 ::= exp6 (("+" | "-") exp6)*
+exp6 ::= exp7 (("*" | "/" | "%") exp7)*
+exp7 ::= ("&" | "*" | typecast | "-" | "+") (exp7 | exp8)
+exp8 ::= ( IDENT ( funcall_params | matrix_brqt | struct_field_access )* ) | ( exp9 (matrix_brqt | struct_field_access)* )
+exp9 ::= "(" exp ")" | INT_LITERAL | CHAR_LITERAL | STRING_LITERAL | sizeof
 
-func_call_or_var  ::= IDENT ["(" [ exp ("," exp)* ] ")"]
-valueat      ::= "*" exp                          # Value at operator (pointer indirection)
-addressof    ::= "&" exp                          # Address-of operator
 sizeof       ::= "sizeof" "(" type ")"            # size of type
+typecast     ::= "(" type ")" exp                 # type casting
+type       ::= ("int" | "char" | "void" | structtype) ("*")*
+
+funccall_params ::= "(" [ exp ("," exp)* ] ")"
+matrix_brqt ::= "[" exp "]"
+struct_field_access ::= "." IDENT

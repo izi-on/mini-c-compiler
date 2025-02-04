@@ -1,4 +1,4 @@
-package test.lexer;
+package lexer;
 
 import static org.junit.jupiter.api.Assertions.*;
 

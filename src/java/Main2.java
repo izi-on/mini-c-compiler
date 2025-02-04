@@ -1,7 +1,10 @@
+import ast.ASTPrinter;
+import ast.Program;
 import lexer.Scanner;
 import lexer.Token;
 import lexer.Tokeniser;
 import parser.Parser;
+import sem.SemanticAnalyzer;
 
 import java.io.*;
 
@@ -9,7 +12,7 @@ import java.io.*;
 /**
  * This is the entry point to the compiler. This files should not be modified.
  */
-public class Main1 {
+public class Main2 {
 
     private static final String LOGFILE = "out.log";
     private static final int UNKNOWN_EXCEPTION = 1;
@@ -18,16 +21,18 @@ public class Main1 {
     private static final int MODE_FAIL      = 254;
     private static final int LEXER_FAIL     = 250;
     private static final int PARSER_FAIL    = 245;
+    private static final int SEM_FAIL       = 240;
     private static final int PASS           = 0;
-    
+
     private enum Mode {
-        LEXER, PARSER
+        LEXER, PARSER, AST, SEMANTICANALYSIS
     }
 
 
     private static void usage() {
-        System.out.println("Usage: java "+ Main1.class.getSimpleName()+" pass inputfile");
-        System.out.println("where pass is either: -lexer, -parser");
+        System.out.println("Usage: java "+ Main2.class.getSimpleName()+" pass inputfile [outputfile]");
+        System.out.println("where pass is either: -lexer, -parser, -ast, -sem");
+        System.out.println("if -ast is chosen, the output file must be specified");
         System.exit(-1);
     }
 
@@ -58,15 +63,13 @@ public class Main1 {
         }  catch (Throwable t) {
             t.printStackTrace();
             logThrowableWithoutMessage(t);
-	    System.exit(UNKNOWN_EXCEPTION);
+            System.exit(UNKNOWN_EXCEPTION);
         }
     }
 
     public static void compile(String[] args) {
 
         ensureArgExists(args, 0);
-        String projectRoot = System.getProperty("user.dir");
-        System.out.println("Project root directory: " + projectRoot);
 
         Mode mode = null;
         int curArgCnt = 0;
@@ -77,6 +80,16 @@ public class Main1 {
                 break;
             case "-parser":
                 mode = Mode.PARSER;
+                curArgCnt++;
+                break;
+            case "-ast":
+                if (args.length < 3)
+                    usage();
+                mode = Mode.AST;
+                curArgCnt++;
+                break;
+            case "-sem":
+                mode = Mode.SEMANTICANALYSIS;
                 curArgCnt++;
                 break;
             default:
@@ -100,7 +113,7 @@ public class Main1 {
         Tokeniser tokeniser = new Tokeniser(scanner);
         if (mode == Mode.LEXER) {
             for (Token t = tokeniser.nextToken(); t.category != Token.Category.EOF; t = tokeniser.nextToken())
-            	System.out.println(t);
+                System.out.println(t);
 
             if (tokeniser.hasErrors()) {
                 System.out.println("Lexing: failed (" + tokeniser.getNumErrors() + " errors)");
@@ -109,12 +122,12 @@ public class Main1 {
             }
 
             System.out.println("Lexing: pass");
-    	    System.exit(PASS);
+            System.exit(PASS);
         }
 
-        else if (mode == Mode.PARSER) {
+        else if (mode == Mode.PARSER || mode == Mode.AST || mode == Mode.SEMANTICANALYSIS) {
             Parser parser = new Parser(tokeniser);
-            parser.parse();
+            Program programAst = parser.parse();
 
             if (tokeniser.hasErrors()) {
                 System.out.println("Lexing: failed (" + tokeniser.getNumErrors() + " errors)");
@@ -128,12 +141,47 @@ public class Main1 {
             }
 
             System.out.println("Parsing: pass");
-            System.exit(PASS);
 
+            if (mode == Mode.PARSER) { // nothing more to do
+                System.exit(PASS);
+                return;
+            }
+
+            if (mode == Mode.AST) { // dump the AST to a file and exit
+                ensureArgExists(args, curArgCnt);
+                File outputFile = new File(args[curArgCnt]);
+                curArgCnt++;
+
+                PrintWriter writer;
+                try {
+                    writer = new PrintWriter(outputFile);
+                } catch (FileNotFoundException e) {
+                    System.out.println("File "+outputFile+" does not exist.");
+                    System.exit(FILE_NOT_FOUND);
+                    return;
+                }
+                new ASTPrinter(writer).visit(programAst);
+                writer.close();
+
+                System.exit(PASS);
+                return;
+            }
+
+            assert(mode == Mode.SEMANTICANALYSIS);
+
+            SemanticAnalyzer sem = new SemanticAnalyzer();
+            sem.analyze(programAst);
+            if (sem.hasErrors()) {
+                System.out.println("Semantic analysis: Failed (" + sem.getNumErrors() + " errors)");
+                System.exit(SEM_FAIL);
+            }
+
+            System.out.println("Semantic analysis: Pass");
+            System.exit(PASS);
         }
 
         else {
-        	System.exit(MODE_FAIL);
+            System.exit(MODE_FAIL);
         }
     }
 }

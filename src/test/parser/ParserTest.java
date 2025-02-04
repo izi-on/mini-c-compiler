@@ -8,6 +8,7 @@ import java.io.*;
 
 import lexer.Scanner;
 import lexer.Tokeniser;
+import parser.Parser;
 
 public class ParserTest {
 
@@ -195,5 +196,418 @@ public class ParserTest {
         // We expect at least 1 error for the missing semicolon after 'int x'
         assertTrue("Expected parse error for missing semicolon.",
                 parser.getNumErrors() > 0);
+    }
+
+    // --- Test multiple includes (include ::= "#include" STRING_LITERAL)
+    @Test
+    public void testMultipleIncludes() throws IOException {
+        String input =
+                "#include \"header1.h\"\n" +
+                        "#include \"header2.h\"\n" +
+                        "int main() { return 0; }\n";
+        Parser parser = createParserFromString(input);
+        parser.parse();
+        assertEquals("Multiple includes should parse without errors.", 0, parser.getNumErrors());
+    }
+
+    // --- Test valid struct declaration (structdecl ::= structtype "{" (vardecl)+ "}" ";")
+    @Test
+    public void testValidStructDecl() throws IOException {
+        String input =
+                "struct Foo { int a; char b; };\n" +
+                        "int main() { return 0; }\n";
+        Parser parser = createParserFromString(input);
+        parser.parse();
+        assertEquals("Valid struct declaration must parse without errors.", 0, parser.getNumErrors());
+    }
+
+    // --- Test invalid struct declaration: missing at least one field (should fail)
+    @Test
+    public void testStructDeclEmptyFails() throws IOException {
+        String input =
+                "struct Empty { };\n" +
+                        "int main() { return 0; }\n";
+        Parser parser = createParserFromString(input);
+        parser.parse();
+        assertTrue("A struct declaration with no fields should produce an error.", parser.getNumErrors() > 0);
+    }
+
+    // --- Test variable declaration with multi-dimensional arrays
+    // (vardecl ::= type IDENT ("[" INT_LITERAL "]")* ";")
+    @Test
+    public void testVarDeclMultiArray() throws IOException {
+        String input =
+                "int matrix[3][4];\n" +
+                        "int main() { return 0; }\n";
+        Parser parser = createParserFromString(input);
+        parser.parse();
+        assertEquals("Multi-dimensional array declaration should succeed.", 0, parser.getNumErrors());
+    }
+
+    // --- Test function declaration (prototype) and function definition
+    // (vardecl_funcdef_or_funcdecl ::= type IDENT ( is_vardecl | is_fundef_or_fundecl ))
+    @Test
+    public void testFunctionDeclAndDef() throws IOException {
+        String input =
+                "int foo(int a, char b);\n" +   // function prototype (declaration)
+                        "int foo(int a, char b) { return a; }\n" +  // function definition
+                        "int main() { return foo(1, 'c'); }\n";
+        Parser parser = createParserFromString(input);
+        parser.parse();
+        assertEquals("Function declaration and definition must parse without errors.", 0, parser.getNumErrors());
+    }
+
+    // --- Test parameters including array parameters
+    // (params ::= [ type IDENT ("[" INT_LITERAL "]")* ("," type IDENT ("[" INT_LITERAL "]")* )* ])
+    @Test
+    public void testFunctionParamsArrays() throws IOException {
+        String input =
+                "int foo(int a[10], char b) { return a[0] + b; }\n" +
+                        "int main() { int arr[10]; return foo(arr, 'c'); }\n";
+        Parser parser = createParserFromString(input);
+        parser.parse();
+        assertEquals("Function parameters (with array dimensions) must parse correctly.", 0, parser.getNumErrors());
+    }
+
+    // ===============================================================
+    // Tests for Statements and Blocks
+    // ===============================================================
+
+    // --- Test if statement without else
+    // (ifStmnt ::= "if" "(" exp ")" withOrWithoutElse)
+    @Test
+    public void testIfWithoutElse() throws IOException {
+        String input =
+                "int main() { if (1) return 1; return 0; }\n";
+        Parser parser = createParserFromString(input);
+        parser.parse();
+        assertEquals("if-statement without else should parse without errors.", 0, parser.getNumErrors());
+    }
+
+    // --- Test if statement with else and ambiguous (dangling else) construct
+    @Test
+    public void testIfElseAmbiguity() throws IOException {
+        String input =
+                "int main() {" +
+                        "  if (1) " +
+                        "     if (0) return 0; else return 1;" +
+                        "  return 0;" +
+                        "}\n";
+        Parser parser = createParserFromString(input);
+        parser.parse();
+        assertEquals("Dangling else should be resolved unambiguously by the grammar.", 0, parser.getNumErrors());
+    }
+
+    // --- Test while statement
+    // (nonIfStmt ::= "while" "(" exp ")" stmt)
+    @Test
+    public void testWhileStatement() throws IOException {
+        String input =
+                "int main() {" +
+                        "  int i;" +
+                        "  while(i < 10) { i = i + 1; }" +
+                        "  return i;" +
+                        "}\n";
+        Parser parser = createParserFromString(input);
+        parser.parse();
+        assertEquals("while statement should parse without errors.", 0, parser.getNumErrors());
+    }
+
+    // --- Test return statement with and without an expression
+    // (nonIfStmt ::= "return" [exp] ";")
+    @Test
+    public void testReturnStatements() throws IOException {
+        String input =
+                "int main() {" +
+                        "  return 0;" +
+                        "}\n" +
+                        "void foo() {" +
+                        "  return;" +
+                        "}\n";
+        Parser parser = createParserFromString(input);
+        parser.parse();
+        assertEquals("Return statements (with and without expression) must parse correctly.", 0, parser.getNumErrors());
+    }
+
+    // --- Test continue and break statements
+    // (nonIfStmt ::= "continue" ";"  and  "break" ";")
+    @Test
+    public void testContinueBreak() throws IOException {
+        String input =
+                "int main() {" +
+                        "  while(1) {" +
+                        "    continue;" +
+                        "    break;" +
+                        "  }" +
+                        "  return 0;" +
+                        "}\n";
+        Parser parser = createParserFromString(input);
+        parser.parse();
+        assertEquals("continue and break statements must parse correctly.", 0, parser.getNumErrors());
+    }
+
+    // --- Test a block with variable declarations and statements
+    // (block ::= "{" (vardecl)* (stmt)* "}")
+    @Test
+    public void testBlockWithDeclsAndStmts() throws IOException {
+        String input =
+                "int main() {" +
+                        "  { int a; a = 5; }" +
+                        "  return 0;" +
+                        "}\n";
+        Parser parser = createParserFromString(input);
+        parser.parse();
+        assertEquals("A block with declarations and statements must parse without errors.", 0, parser.getNumErrors());
+    }
+
+    // --- Test an empty block (allowed because both (vardecl)* and (stmt)* can be empty)
+    @Test
+    public void testEmptyBlock() throws IOException {
+        String input =
+                "int main() {" +
+                        "  {}" +
+                        "  return 0;" +
+                        "}\n";
+        Parser parser = createParserFromString(input);
+        parser.parse();
+        assertEquals("An empty block should be parsed successfully.", 0, parser.getNumErrors());
+    }
+
+    // ===============================================================
+    // Tests for Expressions
+    // ===============================================================
+
+    // --- Test assignment expression and right-associativity: exp ::= exp1 "=" (exp | exp1)
+    @Test
+    public void testAssignmentExpression() throws IOException {
+        String input =
+                "int main() {" +
+                        "  int a; int b; int c;" +
+                        "  a = b = c = 0;" +
+                        "  return a;" +
+                        "}\n";
+        Parser parser = createParserFromString(input);
+        parser.parse();
+        assertEquals("Assignment expressions (right-associative) must parse without errors.", 0, parser.getNumErrors());
+    }
+
+    // --- Test logical OR and AND expressions (exp1 and exp2)
+    @Test
+    public void testLogicalExpressions() throws IOException {
+        String input =
+                "int main() {" +
+                        "  int a; int b;" +
+                        "  a = (a || b) && (a && b);" +
+                        "  return a;" +
+                        "}\n";
+        Parser parser = createParserFromString(input);
+        parser.parse();
+        assertEquals("Logical expressions must parse without errors.", 0, parser.getNumErrors());
+    }
+
+    // --- Test equality (exp3) and relational (exp4) expressions
+    @Test
+    public void testEqualityAndRelationalExpressions() throws IOException {
+        String input =
+                "int main() {" +
+                        "  int a; int b;" +
+                        "  a = (a == b) != (a != b);" +
+                        "  a = (a < b) + (a > b) + (a <= b) + (a >= b);" +
+                        "  return a;" +
+                        "}\n";
+        Parser parser = createParserFromString(input);
+        parser.parse();
+        assertEquals("Equality and relational expressions must parse without errors.", 0, parser.getNumErrors());
+    }
+
+    // --- Test arithmetic expressions (exp5 and exp6)
+    @Test
+    public void testArithmeticExpressions() throws IOException {
+        String input =
+                "int main() {" +
+                        "  int a;" +
+                        "  a = 3 + 4 - 5 * 6 / 2 % 3;" +
+                        "  return a;" +
+                        "}\n";
+        Parser parser = createParserFromString(input);
+        parser.parse();
+        assertEquals("Arithmetic expressions must parse without errors.", 0, parser.getNumErrors());
+    }
+
+    // --- Test unary expressions (exp7): address-of, dereference, unary minus/plus
+    @Test
+    public void testUnaryExpressions() throws IOException {
+        String input =
+                "int main() {" +
+                        "  int a; int *p;" +
+                        "  a = 0;" +
+                        "  p = &a;" +
+                        "  a = *p;" +
+                        "  a = -a;" +
+                        "  a = +a;" +
+                        "  return a;" +
+                        "}\n";
+        Parser parser = createParserFromString(input);
+        parser.parse();
+        assertEquals("Unary expressions must parse without errors.", 0, parser.getNumErrors());
+    }
+
+    // --- Test typecast expressions (part of exp7)
+    // (typecast ::= "(" type ")" exp)
+    @Test
+    public void testTypecastExpression() throws IOException {
+        String input =
+                "int main() {" +
+                        "  int a;" +
+                        "  a = (int) a;" +
+                        "  return a;" +
+                        "}\n";
+        Parser parser = createParserFromString(input);
+        parser.parse();
+        assertEquals("Typecast expressions must parse without errors.", 0, parser.getNumErrors());
+    }
+
+    // --- Test parenthesized expressions and literal expressions (exp9)
+    @Test
+    public void testLiteralAndParenthesizedExpressions() throws IOException {
+        String input =
+                "int main() {" +
+                        "  int a;" +
+                        "  a = (((42))) + 'c' + \"hello\"[0];" +
+                        "  return a;" +
+                        "}\n";
+        /*
+         * Note:
+         * - 42 is an INT_LITERAL.
+         * - 'c' is a CHAR_LITERAL.
+         * - "hello" is a STRING_LITERAL and then the matrix_brqt production ("[" exp "]")
+         *   is applied to access a character.
+         */
+        Parser parser = createParserFromString(input);
+        parser.parse();
+        assertEquals("Literal and parenthesized expressions must parse without errors.", 0, parser.getNumErrors());
+    }
+
+    // --- Test sizeof expressions (exp9 ::= sizeof "(" type ")")
+    @Test
+    public void testSizeofExpression() throws IOException {
+        String input =
+                "int main() {" +
+                        "  int a;" +
+                        "  a = sizeof(int);" +
+                        "  return a;" +
+                        "}\n";
+        Parser parser = createParserFromString(input);
+        parser.parse();
+        assertEquals("sizeof expression must parse without errors.", 0, parser.getNumErrors());
+    }
+
+    // --- Test function call expressions (funccall_params)
+    @Test
+    public void testFunctionCallExpression() throws IOException {
+        String input =
+                "int foo(int x) { return x; }\n" +
+                        "int main() {" +
+                        "  int a;" +
+                        "  a = foo(3 + 4);" +
+                        "  return a;" +
+                        "}\n";
+        Parser parser = createParserFromString(input);
+        parser.parse();
+        assertEquals("Function call expressions must parse without errors.", 0, parser.getNumErrors());
+    }
+
+    // --- Test array access expressions (matrix_brqt)
+    @Test
+    public void testArrayAccessExpression() throws IOException {
+        String input =
+                "int main() {" +
+                        "  int arr[5];" +
+                        "  int a;" +
+                        "  a = arr[2];" +
+                        "  return a;" +
+                        "}\n";
+        Parser parser = createParserFromString(input);
+        parser.parse();
+        assertEquals("Array access expressions must parse without errors.", 0, parser.getNumErrors());
+    }
+
+    // --- Test struct field access expressions (struct_field_access)
+    @Test
+    public void testStructFieldAccessExpression() throws IOException {
+        String input =
+                "struct Point { int x; int y; };\n" +
+                        "int main() {" +
+                        "  struct Point p;" +
+                        "  int a;" +
+                        "  a = p.x;" +
+                        "  return a;" +
+                        "}\n";
+        Parser parser = createParserFromString(input);
+        parser.parse();
+        assertEquals("Struct field access expressions must parse without errors.", 0, parser.getNumErrors());
+    }
+
+    // --- Test a chained expression that mixes function call, array access, and struct field access.
+    // This ensures that exp8’s repetition (funccall_params | matrix_brqt | struct_field_access)* works.
+    @Test
+    public void testChainedExpressions() throws IOException {
+        String input =
+                "struct Data { int arr[5]; };\n" +
+                        "struct Data foo() { struct Data d; d.arr[2] = 42; return d; }\n" +
+                        "int main() {" +
+                        "  int a;" +
+                        "  a = foo().arr[2];" +
+                        "  return a;" +
+                        "}\n";
+        Parser parser = createParserFromString(input);
+        parser.parse();
+        assertEquals("Chained expressions must parse without errors.", 0, parser.getNumErrors());
+    }
+
+    // ===============================================================
+    // Tests for Error Recovery and Edge Cases
+    // ===============================================================
+
+    // --- Test missing semicolon in a variable declaration (vardecl)
+    @Test
+    public void testMissingSemicolonInVarDecl() throws IOException {
+        String input =
+                "int main() {" +
+                        "  int a" +   // MISSING semicolon here
+                        "  a = 5;" +
+                        "  return a;" +
+                        "}\n";
+        Parser parser = createParserFromString(input);
+        parser.parse();
+        assertTrue("Missing semicolon in variable declaration must trigger an error.", parser.getNumErrors() > 0);
+    }
+
+    // --- Test missing parenthesis in an if statement
+    @Test
+    public void testMissingParenthesisInIf() throws IOException {
+        String input =
+                "int main() {" +
+                        "  if 1) return 1; else return 0;" +  // missing opening parenthesis
+                        "  return 0;" +
+                        "}\n";
+        Parser parser = createParserFromString(input);
+        parser.parse();
+        assertTrue("Missing parenthesis in if statement must trigger an error.", parser.getNumErrors() > 0);
+    }
+
+    // --- Test ambiguous typecast versus parenthesized expression.
+    // The grammar distinguishes a typecast if the token following "(" is a type keyword.
+    @Test
+    public void testAmbiguousTypecastVsParen() throws IOException {
+        String input =
+                "int main() {" +
+                        "  int a;" +
+                        "  a = (int)(a * 2);" +
+                        "  return a;" +
+                        "}\n";
+        Parser parser = createParserFromString(input);
+        parser.parse();
+        assertEquals("Ambiguous typecast versus parenthesized expression must parse correctly.", 0, parser.getNumErrors());
     }
 }
