@@ -51,7 +51,7 @@ import java.util.Queue;
  * exp5 ::= exp6 (("+" | "-") exp6)*
  * exp6 ::= exp7 (("*" | "/" | "%") exp7)*
  * exp7 ::= ("&" | "*" | typecast | "-" | "+") (exp7 | exp8)
- * exp8 ::= ( IDENT ( funccall_params | matrix_brqt | struct_field_access )* )
+ * exp8 ::= ( IDENT ( funccall_params | matrix_brqt | struct_field_access | epsilon ) )
  *        | ( exp9 (matrix_brqt | struct_field_access)* )
  * exp9 ::= "(" exp ")" | INT_LITERAL | CHAR_LITERAL | STRING_LITERAL | sizeof
  *
@@ -448,55 +448,60 @@ public class Parser extends CompilerPass {
                 return new BinOp(new IntLiteral(0), Op.SUB, operand);
             else
                 return operand; // unary plus is a no-op
-        } else if (accept(Category.LPAR)) {
-            // Could be a typecast or a parenthesized expression.
-            Token la = lookAhead(1);
-            if (la.category == Category.INT || la.category == Category.CHAR ||
-                    la.category == Category.VOID || la.category == Category.STRUCT) {
-                // typecast production: ( type ) exp7
-                expect(Category.LPAR);
-                Type t = parseType();
-                expect(Category.RPAR);
-                Expr operand = parseExp7();
-                return new TypecastExpr(t, operand);
-            } else {
-                expect(Category.LPAR);
-                Expr e = parseExp();
-                expect(Category.RPAR);
-                return e;
-            }
+        } else if (accept(Category.LPAR) && lookAhead(1).category == Category.INT || lookAhead(1).category == Category.CHAR ||
+                    lookAhead(1).category == Category.VOID || lookAhead(1).category == Category.STRUCT) {
+            // typecast production: ( type ) exp7
+            expect(Category.LPAR);
+            Type t = parseType();
+            expect(Category.RPAR);
+            Expr operand = parseExp7();
+            return new TypecastExpr(t, operand);
         } else {
             return parseExp8();
         }
     }
 
-    // exp8 ::= ( IDENT ( funccall_params | matrix_brqt | struct_field_access )* )
+    // exp8 ::= ( IDENT ( (funccall_params | epsilon) (matrix_brqt | struct_field_access)* ) )
     //        | ( exp9 ( matrix_brqt | struct_field_access )* )
     private Expr parseExp8() {
         Expr expr;
         if (accept(Category.IDENTIFIER)) {
             String id = expect(Category.IDENTIFIER).data;
-            expr = new VarExpr(id);
+            if (accept(Category.LPAR)) {
+                expr = parseFuncCall(id);
+            } else {
+                expr = new VarExpr(id);
+            }
+            while (accept(Category.LSBR) || accept(Category.DOT)) {
+                if (accept(Category.LSBR)) {
+                    nextToken();
+                    Expr index = parseExp();
+                    expect(Category.RSBR);
+                    expr = new ArrayAccessExpr(expr, index);
+                } else {
+                    nextToken();
+                    String field = expect(Category.IDENTIFIER).data;
+                    expr = new FieldAccessExpr(expr, field);
+                }
+            }
+            return expr;
         } else {
             expr = parseExp9();
-        }
-        while (true) {
-            if (accept(Category.LPAR)) {
-                expr = parseFuncCall(expr);
-            } else if (accept(Category.LSBR)) {
-                nextToken();
-                Expr index = parseExp();
-                expect(Category.RSBR);
-                expr = new ArrayAccessExpr(expr, index);
-            } else if (accept(Category.DOT)) {
-                nextToken();
-                String field = expect(Category.IDENTIFIER).data;
-                expr = new FieldAccessExpr(expr, field);
-            } else {
-                break;
+            System.out.println("expecting matrix_brqt or struct_field_access");
+            while (accept(Category.LSBR) || accept(Category.DOT)) {
+                if (accept(Category.LSBR)) {
+                    nextToken();
+                    Expr index = parseExp();
+                    expect(Category.RSBR);
+                    expr = new ArrayAccessExpr(expr, index);
+                } else {
+                    nextToken();
+                    String field = expect(Category.IDENTIFIER).data;
+                    expr = new FieldAccessExpr(expr, field);
+                }
             }
+            return expr;
         }
-        return expr;
     }
 
     // exp9 ::= "(" exp ")" | INT_LITERAL | CHAR_LITERAL | STRING_LITERAL | sizeof
@@ -504,7 +509,9 @@ public class Parser extends CompilerPass {
         if (accept(Category.LPAR)) {
             nextToken();
             Expr e = parseExp();
+            System.out.println("expecting rpar");
             expect(Category.RPAR);
+            System.out.println("done rpar");
             return e;
         } else if (accept(Category.INT_LITERAL)) {
             String data = expect(Category.INT_LITERAL).data;
@@ -534,7 +541,7 @@ public class Parser extends CompilerPass {
     }
 
     // Helper: function call parameters: funccall_params ::= "(" [ exp ("," exp)* ] ")"
-    private Expr parseFuncCall(Expr functionExpr) {
+    private Expr parseFuncCall(String funcId) {
         expect(Category.LPAR);
         List<Expr> args = new ArrayList<>();
         if (!accept(Category.RPAR)) {
@@ -547,12 +554,7 @@ public class Parser extends CompilerPass {
             } while (!accept(Category.RPAR));
         }
         expect(Category.RPAR);
-        if (functionExpr instanceof VarExpr)
-            return new FuncCallExpr(((VarExpr) functionExpr).name, args);
-        else {
-            error(Category.IDENTIFIER);
-            return functionExpr;
-        }
+        return new FuncCallExpr(funcId, args);
     }
 
     // type ::= ("int" | "char" | "void" | structtype) ("*")*

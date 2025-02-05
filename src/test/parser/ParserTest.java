@@ -610,4 +610,71 @@ public class ParserTest {
         parser.parse();
         assertEquals("Ambiguous typecast versus parenthesized expression must parse correctly.", 0, parser.getNumErrors());
     }
+
+    @Test
+    public void testSortLinkedList() throws IOException {
+        String input =
+                // A struct for a linked list node:
+                "struct Node { int value; struct Node* next; };\n" +
+                        // A function that sorts the list using only while loops:
+                        "void sortList(struct Node* head) {\n" +
+                        "    int swapped;\n" +
+                        "    struct Node* ptr;\n" +
+                        "    struct Node* lptr;\n" +
+                        "    if (head == 0) return;\n" +
+                        "    swapped = 1;\n" +
+                        "    lptr = 0;\n" +
+                        "    while (swapped) {\n" +
+                        "        swapped = 0;\n" +
+                        "        ptr = head;\n" +
+                        "        while (((*ptr).next) != lptr) {\n" +
+                        "            if (((*ptr).value) > ((*((*ptr).next)).value)) {\n" +
+                        "                int temp;\n" +
+                        "                temp = (*ptr).value;\n" +
+                        "                (*ptr).value = (*((*ptr).next)).value;\n" +
+                        "                (*((*ptr).next)).value = temp;\n" +
+                        "                swapped = 1;\n" +
+                        "            }\n" +
+                        "            ptr = (*ptr).next;\n" +
+                        "        }\n" +
+                        "        lptr = ptr;\n" +
+                        "    }\n" +
+                        "}\n" +
+                        // A main function that builds a small linked list and calls sortList:
+                        "int main() {\n" +
+                        "    struct Node a;\n" +
+                        "    a.value = 3;\n" +
+                        "    b.value = 1;\n" +
+                        "    c.value = 2;\n" +
+                        "    a.next = &b;\n" +
+                        "    b.next = &c;\n" +
+                        "    c.next = 0;\n" +
+                        "    sortList(&a);\n" +
+                        "    return 0;\n" +
+                        "}\n";
+
+        Parser parser = createParserFromString(input);
+        parser.parse();
+        assertEquals("Sort linked list should parse without errors.", 0, parser.getNumErrors());
+    }
+
+    @Test
+    public void testStructPointerDereference() throws IOException {
+        String input =
+                // A simple struct definition:
+                "struct Point { int x; };\n" +
+                        "int main() {\n" +
+                        "    struct Point p;\n" +
+                        "    struct Point* ptr;\n" +
+                        "    p.x = 5;\n" +
+                        "    ptr = &p;\n" +
+                        // Use pointer dereference (with parentheses) followed by field access:
+                        "    (*ptr).x = 10;\n" +
+                        "    return (*ptr).x;\n" +
+                        "}\n";
+
+        Parser parser = createParserFromString(input);
+        parser.parse();
+        assertEquals("Struct pointer dereference should parse without errors.", 0, parser.getNumErrors());
+    }
 }
