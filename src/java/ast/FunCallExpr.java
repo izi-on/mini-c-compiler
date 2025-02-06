@@ -3,11 +3,11 @@ package ast;
 import java.util.ArrayList;
 import java.util.List;
 
-public final class FuncCallExpr extends Expr {
+public final class FunCallExpr extends Expr {
     String name;
     List<Expr> args;
 
-    public FuncCallExpr(String name, List<Expr> args) {
+    public FunCallExpr(String name, List<Expr> args) {
         this.name = name;
         this.args = args;
     }

@@ -10,12 +10,12 @@ Program(
             VarDecl(INT,c),
             VarDecl(CHAR,t),
             ExprStmt(Assign(VarExpr(n),
-            FuncCallExpr(read_i))),
+            FunCallExpr(read_i))),
             ExprStmt(Assign(VarExpr(first),IntLiteral(0))),
             ExprStmt(Assign(VarExpr(second),IntLiteral(1))),
-            ExprStmt(FuncCallExpr(print_s,TypecastExpr(PointerType(CHAR),StrLiteral(First )))),
-            ExprStmt(FuncCallExpr(print_i,VarExpr(n))),
-            ExprStmt(FuncCallExpr(print_s,TypecastExpr(PointerType(CHAR),StrLiteral( terms of Fibonacci series are : )))),
+            ExprStmt(FunCallExpr(print_s,TypecastExpr(PointerType(CHAR),StrLiteral(First)))),
+            ExprStmt(FunCallExpr(print_i,VarExpr(n))),
+            ExprStmt(FunCallExpr(print_s,TypecastExpr(PointerType(CHAR),StrLiteral(termsofFibonacciseriesare:)))),
             ExprStmt(Assign(VarExpr(c),IntLiteral(0))),
             While(
                 BinOp(VarExpr(c),LT,VarExpr(n)),
@@ -27,8 +27,8 @@ Program(
                         ExprStmt(Assign(VarExpr(first),VarExpr(second))),
                         ExprStmt(Assign(VarExpr(second),VarExpr(next))))
                     ),
-                    ExprStmt(FuncCallExpr(print_i,VarExpr(next))),
-                    ExprStmt(FuncCallExpr(print_s,TypecastExpr(PointerType(CHAR),StrLiteral( )))),
+                    ExprStmt(FunCallExpr(print_i,VarExpr(next))),
+                    ExprStmt(FunCallExpr(print_s,TypecastExpr(PointerType(CHAR),StrLiteral()))),
                     ExprStmt(Assign(VarExpr(c),BinOp(VarExpr(c),ADD,IntLiteral(1))))
                 )
             )

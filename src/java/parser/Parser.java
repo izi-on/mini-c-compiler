@@ -554,7 +554,7 @@ public class Parser extends CompilerPass {
             } while (!accept(Category.RPAR));
         }
         expect(Category.RPAR);
-        return new FuncCallExpr(funcId, args);
+        return new FunCallExpr(funcId, args);
     }
 
     // type ::= ("int" | "char" | "void" | structtype) ("*")*
