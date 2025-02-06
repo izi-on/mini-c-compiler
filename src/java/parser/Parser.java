@@ -187,16 +187,22 @@ public class Parser extends CompilerPass {
         return new StructTypeDecl(structName, fields);
     }
 
-    // vardecl ::= type IDENT ("[" INT_LITERAL "]")* ";"
+    // vardecl ::= type IDENT [declArrayDims] ";"
+    // declArrayDims ::= ("[" INT_LITERAL "]" declArrayDims ) | epsilon
     private VarDecl parseVarDecl(Type type, String id) {
-        while (accept(Category.LSBR)) {
-            nextToken(); // consume "["
-            int size = Integer.parseInt(expect(Category.INT_LITERAL).data);
-            expect(Category.RSBR);
-            type = new ArrayType(type, size);
-        }
+
+        type = declArrayDims(type);
         expect(Category.SC);
         return new VarDecl(type, id);
+    }
+    private Type declArrayDims(Type type) {
+        if (accept(Category.LSBR)) {
+            nextToken();
+            int size = Integer.parseInt(expect(Category.INT_LITERAL).data);
+            expect(Category.RSBR);
+            type = new ArrayType(declArrayDims(type), size); // matrix type decl is from right to left
+        }
+        return type;
     }
 
     // vardecl_funcdef_or_funcdecl ::= type IDENT ( is_vardecl | is_fundef_or_fundecl )
