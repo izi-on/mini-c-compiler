@@ -677,4 +677,14 @@ public class ParserTest {
         parser.parse();
         assertEquals("Struct pointer dereference should parse without errors.", 0, parser.getNumErrors());
     }
+
+    @Test
+    public void testStructDeclAndStructType() throws IOException {
+        String input =
+                "struct Point {int x; };\n" +
+                        "int main() { struct Point p; }\n";
+        Parser parser = createParserFromString(input);
+        parser.parse();
+        assertEquals("Struct declaration and struct type should parse without errors.", 0, parser.getNumErrors());
+    }
 }

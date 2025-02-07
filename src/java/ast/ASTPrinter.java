@@ -117,6 +117,12 @@ public class ASTPrinter {
                 case VarExpr v ->
                         nodePartsPrintOrder(Stream.of(v.name));
 
+                case FieldAccessExpr fa ->
+                        nodePartsPrintOrder(
+                                Stream.of(fa.struct),
+                                Stream.of(fa.field)
+                        );
+
                 case FunCallExpr f ->
                         nodePartsPrintOrder(
                                 Stream.of(f.name),
