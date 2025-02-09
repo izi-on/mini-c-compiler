@@ -344,7 +344,6 @@ public class Tokeniser extends CompilerPass {
             // Continuously fetch tokens and print them until EOF
             while (true) {
                 Token token = tokeniser.nextToken();
-                System.out.println(token);
 
                 if (token.category == Token.Category.EOF) {
                     break;

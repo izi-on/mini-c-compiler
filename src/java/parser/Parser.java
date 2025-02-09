@@ -493,7 +493,6 @@ public class Parser extends CompilerPass {
             return expr;
         } else {
             expr = parseExp9();
-            System.out.println("expecting matrix_brqt or struct_field_access");
             while (accept(Category.LSBR) || accept(Category.DOT)) {
                 if (accept(Category.LSBR)) {
                     nextToken();
@@ -515,16 +514,14 @@ public class Parser extends CompilerPass {
         if (accept(Category.LPAR)) {
             nextToken();
             Expr e = parseExp();
-            System.out.println("expecting rpar");
             expect(Category.RPAR);
-            System.out.println("done rpar");
             return e;
         } else if (accept(Category.INT_LITERAL)) {
             String data = expect(Category.INT_LITERAL).data;
             return new IntLiteral(Integer.parseInt(data));
         } else if (accept(Category.CHAR_LITERAL)) {
             String data = expect(Category.CHAR_LITERAL).data;
-            return new ChrLiteral(data.charAt(0));
+            return new ChrLiteral(data);
         } else if (accept(Category.STRING_LITERAL)) {
             String data = expect(Category.STRING_LITERAL).data;
             return new StrLiteral(data);

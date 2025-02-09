@@ -105,6 +105,12 @@ public class ASTPrinter {
                 case StructType st ->
                         nodePartsPrintOrder(Stream.of(st.typeName));
 
+                case ArrayType at ->
+                        nodePartsPrintOrder(
+                                Stream.of(at.arrayedType),
+                                Stream.of(at.size)
+                        );
+
                 case IntLiteral il ->
                         nodePartsPrintOrder(Stream.of(il.value));
 

@@ -1,14 +1,18 @@
 package ast;
 
+import util.Unescape;
+
 import java.util.ArrayList;
 import java.util.List;
 
 public final class ChrLiteral extends Expr {
 
-   char value;
+    char value;
 
-    public ChrLiteral(char value) {
-        this.value = value;
+    public ChrLiteral(String data) {
+        // data can be an escape sequence like \n
+        // so, parse
+        this.value = Unescape.unescape(data).charAt(0);
     }
 
     @Override
