@@ -1,0 +1,1 @@
+Program(FunDef(INT,main,Block(VarDecl(INT,x),ExprStmt(Assign(VarExpr(x),BinOp(IntLiteral(0),ADD,BinOp(IntLiteral(0),ADD,BinOp(IntLiteral(0),ADD,BinOp(IntLiteral(0),SUB,BinOp(IntLiteral(0),SUB,BinOp(IntLiteral(0),SUB,IntLiteral(5))))))))))))

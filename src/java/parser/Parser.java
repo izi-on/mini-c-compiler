@@ -450,10 +450,7 @@ public class Parser extends CompilerPass {
             Token opToken = token;
             nextToken();
             Expr operand = parseExp7();
-            if (opToken.category == Category.MINUS)
-                return new BinOp(new IntLiteral(0), Op.SUB, operand);
-            else
-                return operand; // unary plus is a no-op
+            return new BinOp(new IntLiteral(0), (opToken.category == Category.MINUS) ? Op.SUB : Op.ADD, operand);
         } else if (accept(Category.LPAR) && lookAhead(1).category == Category.INT || lookAhead(1).category == Category.CHAR ||
                     lookAhead(1).category == Category.VOID || lookAhead(1).category == Category.STRUCT) {
             // typecast production: ( type ) exp7
