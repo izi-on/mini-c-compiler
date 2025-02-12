@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public final class ExprStmt extends Stmt {
-    Expr expr;
+    public Expr expr;
 
     public ExprStmt(Expr expr) {
         this.expr = expr;

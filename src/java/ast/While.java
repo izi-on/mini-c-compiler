@@ -4,8 +4,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 public final class While extends Stmt {
-    Expr cond;
-    Stmt body;
+    public Expr cond;
+    public Stmt body;
 
     public While(Expr cond, Stmt body) {
         this.cond = cond;

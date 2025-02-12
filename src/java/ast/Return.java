@@ -5,7 +5,7 @@ import java.util.List;
 import java.util.Optional;
 
 public final class Return extends Stmt {
-    Optional<Expr> expr;
+    public Optional<Expr> expr;
 
     public Return(Expr expr) {
         this.expr = Optional.ofNullable(expr);

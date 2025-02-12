@@ -16,4 +16,12 @@ public final class VarDecl extends Decl {
         return children;
     }
 
+    public boolean equals(Object o) {
+        if (o instanceof VarDecl) {
+            VarDecl that = (VarDecl) o;
+            return this.type.equals(that.type);
+        }
+        return false;
+    }
+
 }

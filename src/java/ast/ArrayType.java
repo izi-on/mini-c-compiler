@@ -18,4 +18,12 @@ public non-sealed class ArrayType implements Type {
         children.add(arrayedType);
         return children;
     }
+
+    public boolean equals(Object o) {
+        if (o instanceof ArrayType) {
+            ArrayType that = (ArrayType) o;
+            return this.arrayedType.equals(that.arrayedType) && this.size == that.size;
+        }
+        return false;
+    }
 }

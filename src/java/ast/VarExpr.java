@@ -12,8 +12,7 @@ public final class VarExpr extends Expr {
     }
 
     public List<ASTNode> children() {
-        List<ASTNode> children = new ArrayList<>();
-        return children;
+        return new ArrayList<>();
     }
 
 }

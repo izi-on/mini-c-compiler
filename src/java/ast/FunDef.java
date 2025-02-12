@@ -21,4 +21,15 @@ public final class FunDef extends Decl {
         return children;
     }
 
+    public boolean equals(Object o) {
+        if (o instanceof FunDef) {
+            FunDef that = (FunDef) o;
+            return this.name.equals(name) && this.type.equals(that.type) && this.params.equals(that.params);
+        } else if (o instanceof FunDecl) {
+            FunDecl that = (FunDecl) o;
+            return this.name.equals(name) && this.type.equals(that.type) && this.params.equals(that.params);
+        }
+        return false;
+    }
+
 }

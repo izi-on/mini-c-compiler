@@ -16,4 +16,11 @@ public non-sealed class PointerType implements Type{
         children.add(pointerizedType);
         return children;
     }
+    public boolean equals(Object o) {
+        if (o instanceof PointerType) {
+            PointerType that = (PointerType) o;
+            return this.pointerizedType.equals(that.pointerizedType);
+        }
+        return false;
+    }
 }
