@@ -4,8 +4,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 public final class Assign extends Expr {
-    Expr lhs;
-    Expr rhs;
+    public Expr lhs;
+    public Expr rhs;
 
     public Assign(Expr lhs, Expr rhs) {
         this.lhs = lhs;

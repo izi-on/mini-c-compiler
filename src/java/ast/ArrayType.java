@@ -4,9 +4,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 public non-sealed class ArrayType implements Type {
-    Type arrayedType;
+    public Type arrayedType;
     int size;
 
+    public ArrayType() {}
     public ArrayType(Type arrayedType, int size){
         this.arrayedType = arrayedType;
         this.size = size;

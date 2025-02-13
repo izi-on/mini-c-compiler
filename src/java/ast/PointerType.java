@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public non-sealed class PointerType implements Type{
-    Type pointerizedType;
+    public Type pointerizedType;
 
     public PointerType(Type pointerizedType){
         this.pointerizedType = pointerizedType;

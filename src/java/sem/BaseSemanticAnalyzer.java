@@ -12,6 +12,9 @@ import util.CompilerPass;
 public abstract class BaseSemanticAnalyzer extends CompilerPass {
 
 	Scope scope = new Scope();
+	public Scope getScope() {
+		return scope;
+	}
 	public void withNewScope(Runnable r) {
 		scope = new Scope(this.scope);
 		r.run();

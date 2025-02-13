@@ -6,7 +6,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public final class StrLiteral extends Expr {
-    String value;
+    public String value;
 
     public StrLiteral(String data) {
         // data can be an escape sequence like \n

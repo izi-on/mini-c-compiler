@@ -8,7 +8,7 @@ public final class VarExpr extends Expr {
     public VarDecl vd; // to be filled in by the name analyser
     
     public VarExpr(String name){
-	this.name = name;
+        this.name = name;
     }
 
     public List<ASTNode> children() {

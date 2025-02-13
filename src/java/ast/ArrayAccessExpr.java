@@ -4,8 +4,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 public final class ArrayAccessExpr extends Expr {
-    Expr array;
-    Expr index;
+    public Expr array;
+    public Expr index;
 
     public ArrayAccessExpr(Expr array, Expr index) {
         this.array = array;

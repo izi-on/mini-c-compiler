@@ -1,63 +1,353 @@
 package sem;
 
 import ast.*;
+import sem.error.SymbolMismatchErr;
+import sem.error.TypeMismatchErr;
+import sem.error.UnexpectedTypeErr;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class TypeAnalyzer extends BaseSemanticAnalyzer {
 
-	public Type visit(ASTNode node) {
-		return switch(node) {
-			case null -> {
-				throw new IllegalStateException("Unexpected null value");
-			}
-
-			case Block b -> {
-				for (ASTNode c : b.children())
-					visit(b);
-				yield BaseType.NONE;
-			}
-
-			case FunDecl fd -> {
-				// to complete
-				yield BaseType.NONE;
-			}
-
-			case FunDef fd -> {
-				// to complete
-				yield BaseType.NONE;
-			}
-
-			case Program p -> {
-				// to complete
-				yield BaseType.NONE;
-			}
-
-			case VarDecl vd -> {
-				// to complete
-				yield BaseType.NONE;
-			}
-
-			case VarExpr v -> {
-				// to complete
-				yield BaseType.UNKNOWN; // to change
-			}
-
-			case StructTypeDecl std -> {
-				// to complete
-				yield BaseType.UNKNOWN; // to change
-			}
-
-			case Type t -> {
-				yield t;
-			}
-
-			default -> {
-				throw new IllegalStateException("Unexpected value: " + node);
-			}
-
-			// to complete ...
-		};
-
+	private void withNewScope(List<VarDecl> params, Runnable r, Map<String, String> metadata) {
+		scope = new Scope(scope);
+		scope.setMetadata(metadata);
+		for (VarDecl var : params) {
+			scope.put(new TypeSymbol(var.name, var.type));
+		}
+		r.run();
+		scope = scope.getOuter();
 	}
 
+	// Helper: checks that the looked-up symbol is a type symbol.
+	private boolean isValidTypeSymbol(Symbol s) {
+		if (s == null)
+			error(new SymbolMismatchErr(new TypeSymbol("unknown", BaseType.UNKNOWN), new NullSymbol()));
+		else if (!(s instanceof TypeSymbol))
+			error(new SymbolMismatchErr(new TypeSymbol("unknown", BaseType.UNKNOWN), s));
+		return s instanceof TypeSymbol;
+	}
 
+	/**
+	 * Recursively visit an AST node and determine its type.
+	 * For expressions the type is the type that will be used by later passes.
+	 */
+	public Type visit(ASTNode node) {
+		return switch(node) {
+			case null -> throw new IllegalStateException("Unexpected null value");
+
+			// --- Statements ---
+			case Block b -> {
+				for (ASTNode child : b.children())
+					visit(child);
+				yield BaseType.NONE;
+			}
+
+			// --- Function declarations and definitions ---
+			case FunDecl fd -> {
+				// Build an aggregate type: [return type, param type1, param type2, ...]
+				List<Type> types = new ArrayList<>();
+				types.add(fd.type);
+				for (VarDecl param : fd.params) {
+					types.add(param.type);
+				}
+				Type funcType = new AggregateType(types);
+				scope.put(new TypeSymbol(fd.name, funcType));
+				yield funcType;
+			}
+			case FunDef fd -> {
+				List<Type> types = new ArrayList<>();
+				types.add(fd.type);
+				for (VarDecl param : fd.params) {
+					types.add(param.type);
+				}
+				Type funcType = new AggregateType(types);
+				scope.put(new TypeSymbol(fd.name, funcType));
+
+				Map<String, String> metadata = new HashMap<>(); // add the function name as metadata for type lookup
+				metadata.put("function", fd.name);
+				withNewScope(fd.params, () -> {
+					visit(fd.block);
+				}, metadata);
+				yield funcType;
+			}
+
+			// --- Program ---
+			case Program p -> {
+				// Visit all declarations (which will, in turn, add the function, variable, and struct types to the symbol table)
+				for (Decl d : p.decls) {
+					visit(d);
+				}
+				yield BaseType.NONE;
+			}
+
+			// --- Variable declaration ---
+			case VarDecl vd -> {
+				if (vd.type.equals(BaseType.VOID))
+					error(new UnexpectedTypeErr(vd.type));
+				scope.put(new TypeSymbol(vd.name, vd.type));
+				yield vd.type;
+			}
+
+			// --- Literals ---
+			case IntLiteral i -> {yield BaseType.INT;}
+			case StrLiteral s -> {yield new ArrayType(BaseType.CHAR, s.value.length() + 1);}
+			case ChrLiteral c -> {yield BaseType.CHAR;}
+
+			// --- Struct declaration ---
+			case StructTypeDecl std -> {
+				AtomicReference<Scope> structScope = new AtomicReference<>();
+				withNewScope(() -> {
+					// Type-check each field
+					for (VarDecl field : std.varDecls) {
+						Type fieldType = visit(field);
+						if (fieldType.equals(BaseType.VOID)) {
+							error(new UnexpectedTypeErr(fieldType));
+						}
+					}
+					structScope.set(getScope()); // capture the scope for which the struct was declared.
+				});
+				StructType structType = new StructType(std.name);
+				scope.put(new StructTypeSymbol(std.name, structType, structScope.get()));
+				yield structType;
+			}
+
+			// --- Variable usage ---
+			case VarExpr v -> {
+				Symbol s = scope.lookup(v.name);
+				if (!isValidTypeSymbol(s)) {
+					yield BaseType.UNKNOWN;
+				}
+				v.type = ((TypeSymbol) s).type;
+				yield v.type;
+			}
+
+			// --- Function call ---
+			case FunCallExpr f -> {
+				Symbol s = scope.lookup(f.name);
+				if (!isValidTypeSymbol(s)) {
+					f.type = BaseType.UNKNOWN;
+					yield BaseType.UNKNOWN;
+				}
+				// Retrieve the function type (an AggregateType: [return type, param types...])
+				Type funcType = ((TypeSymbol) s).type;
+				if (!(funcType instanceof AggregateType)) {
+					error(new UnexpectedTypeErr(funcType));
+					f.type = BaseType.UNKNOWN;
+					yield BaseType.UNKNOWN;
+				}
+				AggregateType agg = (AggregateType) funcType;
+
+				Type returnType = agg.types.get(0);
+				AggregateType paramTypesAgg = new AggregateType(agg.types.subList(1, agg.types.size()));
+				AggregateType argsTypesAgg = new AggregateType(f.args.stream().map(this::visit).toList());
+
+				// Check if the args match the param types
+				if (!paramTypesAgg.equals(argsTypesAgg)) {
+					error(new TypeMismatchErr(paramTypesAgg, argsTypesAgg));
+				}
+				f.type = returnType;
+				yield returnType;
+			}
+
+			// --- Binary operators ---
+			case BinOp binop -> {
+				Type left = visit(binop.lhs);
+				Type right = visit(binop.rhs);
+				Type binOpType = switch (binop.op) {
+					// For arithmetic and relational operators, both operands must be int.
+					case ADD, SUB, MUL, DIV, MOD, LT, GT, LE, GE, OR, AND -> {
+						if (!left.equals(BaseType.INT) || !right.equals(BaseType.INT)) {
+							error(new UnexpectedTypeErr(left));
+						}
+						yield BaseType.INT;
+					}
+					// For equality operators, the operands must have the same type (and cannot be struct, array, or void)
+					case EQ, NE -> {
+						if (left instanceof StructType
+								|| left instanceof ArrayType
+								|| left.equals(BaseType.VOID)
+								|| !left.equals(right)) {
+							error(new UnexpectedTypeErr(left));
+						}
+						yield BaseType.INT;
+					}
+				};
+				binop.type = binOpType;
+				yield binOpType;
+			}
+
+			// --- Assignment ---
+			case Assign a -> {
+				Type lhsType = visit(a.lhs);
+				if (lhsType.equals(BaseType.VOID) || lhsType instanceof ArrayType) {
+					error(new UnexpectedTypeErr(lhsType));
+				}
+				Type rhsType = visit(a.rhs);
+				if (!lhsType.equals(rhsType)) {
+					error(new UnexpectedTypeErr(rhsType));
+				}
+				yield lhsType;
+			}
+
+			// --- Type cast ---
+			case TypecastExpr tc -> {
+				Type exprType = visit(tc.expr);
+				Type castType = tc.typeToCastTo;
+				Type finalType = null;
+				if (castType.equals(BaseType.INT) && exprType.equals(BaseType.CHAR)) { // cast from char to int
+					finalType = BaseType.INT;
+				} else if (castType instanceof PointerType && exprType instanceof ArrayType) {
+					Type elemTypeInPtr = ((PointerType) castType).pointerizedType;
+					Type elemTypeInArr = ((ArrayType) exprType).arrayedType;
+					if (!elemTypeInPtr.equals(elemTypeInArr)) {
+						error(new UnexpectedTypeErr(elemTypeInPtr));
+					}
+					finalType = castType;
+				} else if (castType instanceof PointerType && exprType instanceof PointerType) {
+					finalType = castType;
+				} else if (finalType == null) {
+					error(new UnexpectedTypeErr(castType));
+					finalType = castType;
+				}
+				tc.type = finalType;
+				yield finalType;
+			}
+
+			// --- sizeof expression ---
+			case SizeOfExpr se -> {
+				se.type = BaseType.INT;
+				yield BaseType.INT;
+			}
+
+			// --- Pointer dereference ---
+			case ValueAtExpr va -> {
+				Type exprType = visit(va.expr);
+				if (!(exprType instanceof PointerType)) {
+					error(new UnexpectedTypeErr(exprType));
+					va.type = BaseType.UNKNOWN;
+					yield BaseType.UNKNOWN;
+				} else {
+					Type res = ((PointerType) exprType).pointerizedType;
+					va.type = res;
+					yield res;
+				}
+			}
+
+			// --- Address-of expression ---
+			case AddressOfExpr aa -> {
+				Type exprType = visit(aa.expr);
+				Type res = new PointerType(exprType);
+				aa.type = res;
+				yield res;
+			}
+
+			case ArrayAccessExpr aa -> {
+				Type arrayType = visit(aa.array);
+				Type indexType = visit(aa.index);
+				if (!indexType.equals(BaseType.INT))
+					error(new UnexpectedTypeErr(indexType));
+				Type accessType;
+				if (arrayType instanceof ArrayType) {
+					accessType = ((ArrayType) arrayType).arrayedType;
+				} else if (arrayType instanceof PointerType) {
+					accessType = ((PointerType) arrayType).pointerizedType;
+				} else {
+					error(new UnexpectedTypeErr(arrayType));
+					accessType = BaseType.UNKNOWN;
+				}
+				aa.type = accessType;
+				yield accessType;
+			}
+
+			// --- Field access (e.g. e.field) ---
+			case FieldAccessExpr fa -> {
+				Type exprType = visit(fa.struct);
+				if (!(exprType instanceof StructType)) {
+					error(new UnexpectedTypeErr(exprType));
+					yield BaseType.UNKNOWN;
+				}
+				StructType structType = (StructType) exprType;
+				StructTypeSymbol structSymbol = (StructTypeSymbol) scope.lookup(structType.typeName);
+				if (structSymbol == null) {
+					error(new SymbolMismatchErr(structSymbol, new NullSymbol()));
+					yield BaseType.UNKNOWN;
+				}
+
+				// check if field is present in the struct scope and get its type
+				Scope structScope = structSymbol.declScope;
+				TypeSymbol fieldSymbol = (TypeSymbol) structScope.lookup(fa.field);
+				if (fieldSymbol == null) {
+					error(new SymbolMismatchErr(new TypeSymbol(fa.field, BaseType.UNKNOWN), new NullSymbol()));
+					yield BaseType.UNKNOWN;
+				}
+				fa.type = fieldSymbol.type;
+				yield fieldSymbol.type;
+			}
+
+			case While w -> {
+				Type condType = visit(w.cond);
+				if (!condType.equals(BaseType.INT)) {
+					error(new UnexpectedTypeErr(condType));
+				}
+				withNewScope(() -> {
+					visit(w.body);
+				});
+				yield BaseType.NONE;
+			}
+
+			case If i -> {
+				Type condType = visit(i.condition);
+				if (!condType.equals(BaseType.INT)) {
+					error(new UnexpectedTypeErr(condType));
+				}
+				withNewScope(() -> {
+					visit(i.thenStmt);
+				});
+				withNewScope(() -> {
+					i.elseStmt.ifPresent(this::visit);
+				});
+				yield BaseType.NONE;
+			}
+
+			case Return r -> {
+				yield scope.lookupMetadata("function")
+						.map(s -> {
+							AggregateType funcSymbType = (AggregateType) ((TypeSymbol) scope.lookup(s)).type;
+							Type returnType = funcSymbType.types.get(0);
+
+							if (returnType.equals(BaseType.VOID) && r.expr.isPresent()) {
+								error("returning a value from a void function");
+								return BaseType.NONE;
+							} else if (!returnType.equals(BaseType.VOID) && r.expr.isEmpty()) {
+								error("returning nothing from a non-void function");
+								return BaseType.NONE;
+							}
+
+							r.expr.ifPresent(e -> {
+								Type exprType = visit(e);
+								if (!returnType.equals(exprType)) {
+									error(new TypeMismatchErr(returnType, exprType));
+								}
+							});
+							return BaseType.NONE;
+						})
+						.orElseGet(() -> {
+							error("return statement outside of a function");
+							return BaseType.NONE;
+						});
+			}
+
+			case Type t -> {yield t;}
+
+			default -> {
+				node.children().forEach(this::visit);
+				yield BaseType.NONE;
+			}
+		};
+	}
 }

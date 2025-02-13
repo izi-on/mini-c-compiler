@@ -6,6 +6,8 @@ import java.util.List;
 public non-sealed class StructType implements Type{
     public String typeName;
 
+
+    public StructType() {}
     public StructType(String typeName){
         this.typeName = typeName;
     }

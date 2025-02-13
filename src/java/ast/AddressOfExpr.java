@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public final class AddressOfExpr extends Expr {
-    Expr expr;
+    public Expr expr;
 
     public AddressOfExpr(Expr expr) {
         this.expr = expr;
