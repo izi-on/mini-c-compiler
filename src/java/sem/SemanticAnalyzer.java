@@ -14,6 +14,9 @@ public class SemanticAnalyzer extends CompilerPass {
 		TypeAnalyzer tc = new TypeAnalyzer();
 		tc.visit(prog);
 		this.numErrors += tc.getNumErrors();
-		// To complete
+
+		AllowedStmntAnalyzer asa = new AllowedStmntAnalyzer();
+		asa.visit(prog);
+		this.numErrors += asa.getNumErrors();
 	}
 }
