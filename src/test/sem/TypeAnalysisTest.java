@@ -25,6 +25,7 @@ import ast.StructTypeDecl;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 public class TypeAnalysisTest {
@@ -256,4 +257,307 @@ public class TypeAnalysisTest {
         assertEquals(BaseType.INT, fieldAccess.type, "Field access should yield type int");
         assertEquals(0, ta.getNumErrors(), "Valid field access should produce no errors");
     }
+
+    /**
+     * Test that when a local declaration shadows a global variable,
+     * a VarExpr inside the local block resolves to the local type.
+     */
+    @Test
+    public void testLocalShadowingOverridesGlobal() {
+        // Global variable: int x;
+        VarDecl globalX = new VarDecl(BaseType.INT, "x");
+
+        // In main, declare a local variable x of type char that shadows global x.
+        VarDecl localX = new VarDecl(BaseType.CHAR, "x");
+        // The variable use inside the block.
+        VarExpr varX = new VarExpr("x");
+        ExprStmt assign = new ExprStmt(new Assign(varX, new ChrLiteral("a")));
+        Return ret = new Return(new IntLiteral(5));
+
+        // Build a block that first declares localX then returns x.
+        Block block = new Block(new ArrayList<>(List.of(localX)), new ArrayList<>(List.of(assign, ret)));
+        // Define main with no parameters.
+        FunDef mainFun = new FunDef(BaseType.INT, "main", new ArrayList<>(), block);
+
+        // Program: global declaration followed by main.
+        List<Decl> decls = new ArrayList<>();
+        decls.add(globalX);
+        decls.add(mainFun);
+        Program prog = new Program(decls);
+
+        // Run type analysis.
+        TypeAnalyzer ta = new TypeAnalyzer();
+        ta.visit(prog);
+
+        // The VarExpr should resolve to type char (from localX).
+        assertEquals(BaseType.CHAR, varX.type, "Local shadowing should yield type char for x");
+        assertEquals(0, ta.getNumErrors(), "No errors expected for valid local shadowing");
+    }
+
+    /**
+     * Test that a function parameter shadows a global variable.
+     * Here a global variable "h" of type int is shadowed by a function parameter "h" of type char.
+     */
+    @Test
+    public void testParameterShadowingOverridesGlobal() {
+        // Global variable: int h;
+        VarDecl globalH = new VarDecl(BaseType.INT, "h");
+
+        // Define main with a parameter "h" of type char.
+        VarDecl paramH = new VarDecl(BaseType.CHAR, "h");
+        VarExpr varH = new VarExpr("h");
+        Return ret = new Return(varH);
+        Block block = new Block(new ArrayList<>(), new ArrayList<>(List.of(ret)));
+        FunDef mainFun = new FunDef(BaseType.CHAR, "main", new ArrayList<>(List.of(paramH)), block);
+
+        // Program contains the global variable and main.
+        List<Decl> decls = new ArrayList<>();
+        decls.add(globalH);
+        decls.add(mainFun);
+        Program prog = new Program(decls);
+
+        // Run type analysis.
+        TypeAnalyzer ta = new TypeAnalyzer();
+        ta.visit(prog);
+
+        // The VarExpr 'h' should have type char (from the parameter), not int.
+        assertEquals(BaseType.CHAR, varH.type, "Function parameter should shadow global h and yield type char");
+        assertEquals(0, ta.getNumErrors(), "No errors expected for valid parameter shadowing");
+    }
+
+    /**
+     * Test that when no local declaration exists,
+     * a VarExpr refers to the global variable.
+     */
+    @Test
+    public void testGlobalVariableUsedWhenNoLocalShadow() {
+        // Global variable: int x;
+        VarDecl globalX = new VarDecl(BaseType.INT, "x");
+
+        // In main, there is no local declaration for x.
+        VarExpr varX = new VarExpr("x");
+        Return ret = new Return(varX);
+        Block block = new Block(new ArrayList<>(), new ArrayList<>(List.of(ret)));
+        FunDef mainFun = new FunDef(BaseType.INT, "main", new ArrayList<>(), block);
+
+        // Program consists of the global variable and main.
+        List<Decl> decls = new ArrayList<>();
+        decls.add(globalX);
+        decls.add(mainFun);
+        Program prog = new Program(decls);
+
+        // Run type analysis.
+        TypeAnalyzer ta = new TypeAnalyzer();
+        ta.visit(prog);
+
+        // The VarExpr should resolve to type int (from globalX).
+        assertEquals(BaseType.INT, varX.type, "Without shadowing, x should have type int");
+        assertEquals(0, ta.getNumErrors(), "No errors expected when no shadowing occurs");
+    }
+
+    @Test
+    public void testVariableDeclaredWithUndeclaredStructType() {
+        // Create a global variable declared with a struct type "NonExistent" (which is never defined)
+        VarDecl var = new VarDecl(new StructType("NonExistent"), "v");
+
+        // Build the program with the undeclared struct variable and the main function
+        List<Decl> decls = new ArrayList<>();
+        decls.add(var);
+        Program prog = new Program(decls);
+
+        // Run type analysis on the program
+        TypeAnalyzer analyzer = new TypeAnalyzer();
+        analyzer.visit(prog);
+
+        assertTrue(analyzer.getNumErrors() > 0,
+                "Declaring a variable with an undeclared struct type should produce a type analysis error");
+    }
+
+    @Test
+    public void testVariableDeclaredWithDeclaredStructType() {
+        // Create a struct declaration for "Point" with one field "x" of type int.
+        VarDecl field = new VarDecl(BaseType.INT, "x");
+        List<VarDecl> fields = new ArrayList<>();
+        fields.add(field);
+        StructTypeDecl structDecl = new StructTypeDecl("Point", fields);
+
+        // Create a global variable 'p' declared with type StructType("Point")
+        VarDecl globalVar = new VarDecl(new StructType("Point"), "p");
+
+        // Create a main function that declares a local variable 'q' of type "Point"
+        VarDecl localVar = new VarDecl(new StructType("Point"), "q");
+        // Use 'q' in an expression so its type is checked.
+        VarExpr localVarExpr = new VarExpr("q");
+        Return ret = new Return(localVarExpr);
+
+        // The main block now has one local variable declaration (q) and one statement (return q).
+        List<VarDecl> localDecls = new ArrayList<>();
+        localDecls.add(localVar);
+        List<Stmt> stmts = new ArrayList<>();
+        stmts.add(ret);
+        Block mainBlock = new Block(localDecls, stmts);
+
+        // Create the main function.
+        FunDef mainFun = new FunDef(new StructType("Point"), "main", new ArrayList<>(), mainBlock);
+
+        // Build the program: struct declaration, global variable, and main function.
+        List<Decl> decls = new ArrayList<>();
+        decls.add(structDecl);
+        decls.add(globalVar);
+        decls.add(mainFun);
+        Program prog = new Program(decls);
+
+        // Run type analysis on the program.
+        TypeAnalyzer analyzer = new TypeAnalyzer();
+        analyzer.visit(prog);
+
+        // Since "Point" is declared, both the global 'p' and the local 'q' should resolve correctly.
+        // We expect no errors from the type analysis.
+        assertEquals(0, analyzer.getNumErrors(),
+                "Variables declared with a properly declared struct type should produce no type errors");
+    }
+
+    @Test
+    public void testInvalidRecursiveStruct() {
+        // Create a struct "Node" with two fields:
+        //  - an integer field "a"
+        //  - a field "n" of type "struct Node" (direct recursive field, which is invalid)
+        VarDecl fieldA = new VarDecl(BaseType.INT, "a");
+        // This field is declared with type "struct Node" (without wrapping it in a PointerType)
+        VarDecl fieldN = new VarDecl(new StructType("Node"), "n");
+        List<VarDecl> fields = new ArrayList<>();
+        fields.add(fieldA);
+        fields.add(fieldN);
+
+        // Construct the struct declaration
+        StructTypeDecl nodeStruct = new StructTypeDecl("Node", fields);
+
+        // Create a program that contains only this struct declaration
+        Program prog = new Program(new ArrayList<>(List.of(nodeStruct)));
+
+        // Run type analysis on the program.
+        TypeAnalyzer ta = new TypeAnalyzer();
+        ta.visit(prog);
+
+        // We expect at least one error because the struct "Node" is recursively defined by value.
+        assertTrue(ta.getNumErrors() > 0,
+                "Recursive struct field without pointer should produce a type error");
+    }
+
+    @Test
+    public void testValidRecursiveStructUsingPointer() {
+        // Create a struct "Node" with two fields:
+        //  - an integer field "a"
+        //  - a field "next" of type pointer to "struct Node" (which is valid)
+        VarDecl fieldA = new VarDecl(BaseType.INT, "a");
+        VarDecl fieldNext = new VarDecl(new PointerType(new StructType("Node")), "next");
+        List<VarDecl> fields = new ArrayList<>();
+        fields.add(fieldA);
+        fields.add(fieldNext);
+
+        // Construct the struct declaration for "Node"
+        StructTypeDecl nodeStruct = new StructTypeDecl("Node", fields);
+
+        // Create a program containing just this struct declaration
+        Program prog = new Program(new ArrayList<>(List.of(nodeStruct)));
+
+        // Run type analysis on the program.
+        TypeAnalyzer ta = new TypeAnalyzer();
+        ta.visit(prog);
+
+        // We expect zero errors because the recursive field is via a pointer.
+        assertEquals(0, ta.getNumErrors(),
+                "Recursive struct field via pointer should produce no type errors");
+    }
+
+    /**
+     * Valid code: the left-hand side of the assignment is a VarExpr.
+     * Example:
+     *    int i;
+     *    i = 0;
+     */
+    @Test
+    public void testValidLValueAssignment() {
+        // Global variable: int i;
+        VarDecl iDecl = new VarDecl(BaseType.INT, "i");
+        // In main, assignment: i = 0;
+        VarExpr iVar = new VarExpr("i");
+        Assign assign = new Assign(iVar, new IntLiteral(0));
+        // Also return i (to complete main)
+        Return ret = new Return(iVar);
+        Block block = new Block(new ArrayList<>(), Arrays.asList(new ExprStmt(assign), ret));
+        FunDef mainFun = new FunDef(BaseType.INT, "main", new ArrayList<>(), block);
+        Program prog = new Program(Arrays.asList(iDecl, mainFun));
+
+        TypeAnalyzer ta = new TypeAnalyzer();
+        ta.visit(prog);
+        // Expect no errors because i is a valid lvalue.
+        assertEquals(0, ta.getNumErrors(), "Valid lvalue assignment should produce no errors.");
+    }
+
+    /**
+     * Invalid lvalue: (i + 2) is used on the left-hand side.
+     * Example:
+     *    int i;
+     *    (i+2) = 3;
+     */
+    @Test
+    public void testInvalidLValueAssignment_BinOp() {
+        VarDecl iDecl = new VarDecl(BaseType.INT, "i");
+        // LHS is a binary operation: i+2 (which is not a valid lvalue)
+        BinOp nonLvalue = new BinOp(new VarExpr("i"), Op.ADD, new IntLiteral(2));
+        Assign assign = new Assign(nonLvalue, new IntLiteral(3));
+        // We add a return statement (using i) so that the function is complete.
+        Return ret = new Return(new VarExpr("i"));
+        Block block = new Block(new ArrayList<>(), Arrays.asList(new ExprStmt(assign), ret));
+        FunDef mainFun = new FunDef(BaseType.INT, "main", new ArrayList<>(), block);
+        Program prog = new Program(Arrays.asList(iDecl, mainFun));
+
+        TypeAnalyzer ta = new TypeAnalyzer();
+        ta.visit(prog);
+        assertTrue(ta.getNumErrors() > 0,
+                "Using (i+2) as the left-hand side of an assignment should produce an error.");
+    }
+
+    /**
+     * Invalid use of address-of: &3 where 3 is not an lvalue.
+     */
+    @Test
+    public void testInvalidAddressOfNonLValue() {
+        // &3 is not allowed because 3 (an IntLiteral) is not a valid lvalue.
+        AddressOfExpr addrOfNonLValue = new AddressOfExpr(new IntLiteral(3));
+        Return ret = new Return(addrOfNonLValue);
+        Block block = new Block(new ArrayList<>(), Arrays.asList(new ExprStmt(addrOfNonLValue), ret));
+        FunDef mainFun = new FunDef(BaseType.INT, "main", new ArrayList<>(), block);
+        Program prog = new Program(Arrays.asList(mainFun));
+
+        TypeAnalyzer ta = new TypeAnalyzer();
+        ta.visit(prog);
+        assertTrue(ta.getNumErrors() > 0,
+                "Applying & to a non-lvalue (3) should produce an error.");
+    }
+
+    /**
+     * Invalid lvalue: foo().a where foo() is a function call (not an lvalue).
+     */
+    @Test
+    public void testInvalidFieldAccessOnNonLValue() {
+        VarDecl iDecl = new VarDecl(BaseType.INT, "i");
+        // Create a function call expression foo() (which is not an lvalue)
+        FunCallExpr fooCall = new FunCallExpr("foo", new ArrayList<>());
+        // Then access field 'a' on it: foo().a is not an lvalue because foo() isn’t
+        FieldAccessExpr fieldAccess = new FieldAccessExpr(fooCall, "a");
+        // Use that as the LHS of an assignment: foo().a = i;
+        Assign assign = new Assign(fieldAccess, new VarExpr("i"));
+        Return ret = new Return(new VarExpr("i"));
+        Block block = new Block(new ArrayList<>(), Arrays.asList(new ExprStmt(assign), ret));
+        FunDef mainFun = new FunDef(BaseType.INT, "main", new ArrayList<>(), block);
+        Program prog = new Program(Arrays.asList(iDecl, mainFun));
+
+        TypeAnalyzer ta = new TypeAnalyzer();
+        ta.visit(prog);
+        assertTrue(ta.getNumErrors() > 0,
+                "Using foo().a (where foo() is not an lvalue) as the left-hand side should produce an error.");
+    }
 }
+

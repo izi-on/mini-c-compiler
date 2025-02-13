@@ -31,7 +31,10 @@ public class Scope {
 	}
 
 	public Optional<String> lookupMetadata(String name) {
-		return Optional.ofNullable(metadata.getOrDefault(name, null));
+		String res = metadata.getOrDefault(name, null);
+		if (res != null)
+			return Optional.of(res);
+		return (outer != null) ? outer.lookupMetadata(name) : Optional.empty();
 	}
 	
 	public Symbol lookupCurrent(String name) {

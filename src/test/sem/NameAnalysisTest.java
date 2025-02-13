@@ -217,4 +217,34 @@ public class NameAnalysisTest {
         na.visit(prog);
         assertTrue(na.getNumErrors() > 0, "Using a variable outside its block scope should cause an error");
     }
-}
+
+    @Test
+    void testDuplicateStructDefinition() {
+        // Create the first struct "Point" with one field.
+        VarDecl field1 = new VarDecl(BaseType.INT, "x");
+        List<VarDecl> fields1 = new ArrayList<>();
+        fields1.add(field1);
+        StructTypeDecl struct1 = new StructTypeDecl("Point", fields1);
+
+        // Create a second struct "Point" (duplicate) with a different field.
+        VarDecl field2 = new VarDecl(BaseType.INT, "y");
+        List<VarDecl> fields2 = new ArrayList<>();
+        fields2.add(field2);
+        StructTypeDecl struct2 = new StructTypeDecl("Point", fields2);
+
+        // Build a program that contains both struct declarations.
+        List<Decl> decls = new ArrayList<>();
+        decls.add(struct1);
+        decls.add(struct2);
+        // Adding a dummy main function to complete the program.
+        FunDef mainFun = new FunDef(BaseType.INT, "main", new ArrayList<>(), new Block(new ArrayList<>(), new ArrayList<>()));
+        decls.add(mainFun);
+        Program prog = new Program(decls);
+
+        // Run name analysis.
+        NameAnalyzer na = new NameAnalyzer();
+        na.visit(prog);
+
+        // The duplicate struct definitions should be detected.
+        assertTrue(na.getNumErrors() > 0, "Duplicate struct definitions should cause a name analysis error");
+    }}

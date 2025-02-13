@@ -13,6 +13,18 @@ import java.util.concurrent.atomic.AtomicReference;
 
 public class TypeAnalyzer extends BaseSemanticAnalyzer {
 
+	private void checkValidLValue(Expr expr) {
+		if (expr instanceof ArrayAccessExpr)
+			checkValidLValue(((ArrayAccessExpr) expr).array);
+		else if (expr instanceof FieldAccessExpr)
+			checkValidLValue(((FieldAccessExpr) expr).struct);
+		else if (expr instanceof ValueAtExpr)
+			checkValidLValue(((ValueAtExpr) expr).expr);
+		else if (expr instanceof VarExpr)
+			return;
+		else
+			error("Invalid lvalue");
+	}
 	private void withNewScope(List<VarDecl> params, Runnable r, Map<String, String> metadata) {
 		scope = new Scope(scope);
 		scope.setMetadata(metadata);
@@ -30,6 +42,28 @@ public class TypeAnalyzer extends BaseSemanticAnalyzer {
 		else if (!(s instanceof TypeSymbol))
 			error(new SymbolMismatchErr(new TypeSymbol("unknown", BaseType.UNKNOWN), s));
 		return s instanceof TypeSymbol;
+	}
+	private boolean isValidTypeSymbol(Symbol s, String name) {
+		if (s == null)
+			error(new SymbolMismatchErr(new TypeSymbol("unknown", BaseType.UNKNOWN), new NullSymbol(name)));
+		else if (!(s instanceof TypeSymbol))
+			error(new SymbolMismatchErr(new TypeSymbol("unknown", BaseType.UNKNOWN), s));
+		return s instanceof TypeSymbol;
+	}
+
+	/*
+	 * Helper function to check if a struct type is recursively defined in a struct field.
+	 */
+	private boolean checkForRecursiveStructPointer(Type curType, String structName) {
+		if (curType instanceof PointerType) { // if pointerized, ok
+			return false;
+		} else if (curType instanceof ArrayType) {
+			return checkForRecursiveStructPointer(((ArrayType) curType).arrayedType, structName);
+		} else if (curType instanceof StructType) {
+			return ((StructType) curType).typeName.equals(structName);
+		} else {
+			return false;
+		}
 	}
 
 	/**
@@ -51,9 +85,9 @@ public class TypeAnalyzer extends BaseSemanticAnalyzer {
 			case FunDecl fd -> {
 				// Build an aggregate type: [return type, param type1, param type2, ...]
 				List<Type> types = new ArrayList<>();
-				types.add(fd.type);
+				types.add(visit(fd.type));
 				for (VarDecl param : fd.params) {
-					types.add(param.type);
+					types.add(visit(param.type));
 				}
 				Type funcType = new AggregateType(types);
 				scope.put(new TypeSymbol(fd.name, funcType));
@@ -61,9 +95,9 @@ public class TypeAnalyzer extends BaseSemanticAnalyzer {
 			}
 			case FunDef fd -> {
 				List<Type> types = new ArrayList<>();
-				types.add(fd.type);
+				types.add(visit(fd.type));
 				for (VarDecl param : fd.params) {
-					types.add(param.type);
+					types.add(visit(param.type));
 				}
 				Type funcType = new AggregateType(types);
 				scope.put(new TypeSymbol(fd.name, funcType));
@@ -89,7 +123,7 @@ public class TypeAnalyzer extends BaseSemanticAnalyzer {
 			case VarDecl vd -> {
 				if (vd.type.equals(BaseType.VOID))
 					error(new UnexpectedTypeErr(vd.type));
-				scope.put(new TypeSymbol(vd.name, vd.type));
+				scope.put(new TypeSymbol(vd.name, visit(vd.type)));
 				yield vd.type;
 			}
 
@@ -108,6 +142,8 @@ public class TypeAnalyzer extends BaseSemanticAnalyzer {
 						if (fieldType.equals(BaseType.VOID)) {
 							error(new UnexpectedTypeErr(fieldType));
 						}
+						if (checkForRecursiveStructPointer(fieldType, std.name))
+							error("Recursive struct pointer detected for field: " + field.name + ", please use a pointer type instead.");
 					}
 					structScope.set(getScope()); // capture the scope for which the struct was declared.
 				});
@@ -187,6 +223,7 @@ public class TypeAnalyzer extends BaseSemanticAnalyzer {
 				if (lhsType.equals(BaseType.VOID) || lhsType instanceof ArrayType) {
 					error(new UnexpectedTypeErr(lhsType));
 				}
+				checkValidLValue(a.lhs);
 				Type rhsType = visit(a.rhs);
 				if (!lhsType.equals(rhsType)) {
 					error(new UnexpectedTypeErr(rhsType));
@@ -197,7 +234,7 @@ public class TypeAnalyzer extends BaseSemanticAnalyzer {
 			// --- Type cast ---
 			case TypecastExpr tc -> {
 				Type exprType = visit(tc.expr);
-				Type castType = tc.typeToCastTo;
+				Type castType = visit(tc.typeToCastTo);
 				Type finalType = null;
 				if (castType.equals(BaseType.INT) && exprType.equals(BaseType.CHAR)) { // cast from char to int
 					finalType = BaseType.INT;
@@ -241,6 +278,7 @@ public class TypeAnalyzer extends BaseSemanticAnalyzer {
 			// --- Address-of expression ---
 			case AddressOfExpr aa -> {
 				Type exprType = visit(aa.expr);
+				checkValidLValue(aa.expr);
 				Type res = new PointerType(exprType);
 				aa.type = res;
 				yield res;
@@ -317,7 +355,20 @@ public class TypeAnalyzer extends BaseSemanticAnalyzer {
 			case Return r -> {
 				yield scope.lookupMetadata("function")
 						.map(s -> {
-							AggregateType funcSymbType = (AggregateType) ((TypeSymbol) scope.lookup(s)).type;
+							Symbol lookupRes = scope.lookup(s);
+							if (lookupRes == null) {
+								error(new SymbolMismatchErr(new TypeSymbol(s, BaseType.UNKNOWN), new NullSymbol()));
+								return BaseType.NONE;
+							} else if (!(lookupRes instanceof TypeSymbol)) {
+								error(new SymbolMismatchErr(new TypeSymbol(s, BaseType.UNKNOWN), lookupRes));
+								return BaseType.NONE;
+							}
+							Type typeOfSymbol = ((TypeSymbol) lookupRes).type;
+							if (!(typeOfSymbol instanceof AggregateType)) {
+								error(new UnexpectedTypeErr(typeOfSymbol));
+								return BaseType.NONE;
+							}
+							AggregateType funcSymbType = (AggregateType) typeOfSymbol;
 							Type returnType = funcSymbType.types.get(0);
 
 							if (returnType.equals(BaseType.VOID) && r.expr.isPresent()) {
@@ -342,6 +393,14 @@ public class TypeAnalyzer extends BaseSemanticAnalyzer {
 						});
 			}
 
+			// for struct types, ensure that the struct is declared previously
+			case StructType st -> {
+				Symbol s = scope.lookup(st.typeName);
+				if (!isValidTypeSymbol(s, st.typeName)) {
+					yield BaseType.UNKNOWN;
+				}
+				yield st;
+			}
 			case Type t -> {yield t;}
 
 			default -> {
