@@ -9,4 +9,7 @@ public class TypeSymbol extends Symbol {
         super(name);
         this.type = type;
     }
+    static public String prefix() {
+        return "";
+    }
 }

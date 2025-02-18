@@ -98,6 +98,10 @@ public class NameAnalyzer extends BaseSemanticAnalyzer {
 		});
 	}
 
+	private void handleBlockVisit(Block b) {
+		Stream.concat(b.vds.stream(), b.stmts.stream()).forEach(this::visit);
+	}
+
 	public void visit(ASTNode node) {
 		switch(node) {
 			case null -> {
@@ -107,7 +111,7 @@ public class NameAnalyzer extends BaseSemanticAnalyzer {
 			case Block b -> {
 				// create a scope for the block
 				withNewScope(() -> {
-					Stream.concat(b.vds.stream(), b.stmts.stream()).forEach(this::visit);
+					handleBlockVisit(b);
 				});
 			}
 
@@ -118,7 +122,7 @@ public class NameAnalyzer extends BaseSemanticAnalyzer {
 				if (symb == null) {
 					scope.put(new FunctionSymbol(fd.name, fd));
 				} else if (!(symb instanceof FunctionSymbol)) { // check if the symbol is a function symbol
-					error(new SymbolMismatchErr(new FunctionSymbol(fd.name, fd), symb));
+					error(new DoubleDeclErr(fd));
 					return;
 				} else {
 					FunctionSymbol fs = (FunctionSymbol) symb;
@@ -143,7 +147,7 @@ public class NameAnalyzer extends BaseSemanticAnalyzer {
 				if (symb == null) {
 					scope.put(new FunctionSymbol(fd.name, fd));
 				} else if (!(symb instanceof FunctionSymbol)) { // check if the symbol is a function symbol
-					error(new SymbolMismatchErr(new FunctionSymbol(fd.name, fd), symb));
+					error(new DoubleDeclErr(fd));
 					return;
 				} else {
 					FunctionSymbol fs = (FunctionSymbol) symb;
@@ -160,12 +164,12 @@ public class NameAnalyzer extends BaseSemanticAnalyzer {
 					}
 				}
 				withNewScope(fd.params ,() -> {
-					visit(fd.block);
+					handleBlockVisit(fd.block); // if we visit the params are in a parent scope, we want same scope
 				});
 			}
 
 			case Program p -> {
-				withNewScope(() -> {
+				withNewScope(() -> { // this force the fun decl and fun def check
 					p.decls.forEach(this::visit);
 				});
 			}
@@ -205,43 +209,10 @@ public class NameAnalyzer extends BaseSemanticAnalyzer {
 			}
 
 			case StructTypeDecl std -> {
-				if (checkNotReDecl(std)) {
-					scope.put(new StructSymbol(std.name, std));
-					withNewScope(() -> {
-						std.varDecls.forEach(this::visit);
-					});
-				}
+				withNewScope(() -> {
+					std.varDecls.forEach(this::visit);
+				});
 			}
-
-			case Type t -> {
-				if ((t instanceof StructType) && scope.lookup(((StructType) t).typeName) == null) {
-					error(new UndeclaredVarErr(new VarExpr(((StructType) t).typeName)));
-				}
-			}
-
-			case Return ret -> {
-				if (ret.expr.isPresent()) {
-					visit(ret.expr.get());
-				}
-			}
-
-			case ExprStmt es -> {
-				visit(es.expr);
-			}
-
-			case If i -> {
-				visit(i.condition);
-				visit(i.thenStmt);
-				i.elseStmt.ifPresent(this::visit);
-			}
-
-			case While w -> {
-				visit(w.cond);
-				visit(w.body);
-			}
-
-			case Continue c -> { }
-			case Break b -> { }
 
 			default -> {
 				node.children().forEach(this::visit);

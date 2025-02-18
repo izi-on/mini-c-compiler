@@ -202,7 +202,8 @@ public class TypeAnalysisTest {
         Type valAtType = ta.visit(valAtExpr);
         assertEquals(new PointerType(BaseType.INT), addrType, "Address-of should yield pointer to int");
         assertEquals(BaseType.INT, valAtType, "Value-at should yield int");
-        assertEquals(0, ta.getNumErrors(), "Pointer operations should produce no errors");    }
+        assertEquals(0, ta.getNumErrors(), "Pointer operations should produce no errors");
+    }
 
     @Test
     public void testTypeCast() {
@@ -473,8 +474,8 @@ public class TypeAnalysisTest {
     /**
      * Valid code: the left-hand side of the assignment is a VarExpr.
      * Example:
-     *    int i;
-     *    i = 0;
+     * int i;
+     * i = 0;
      */
     @Test
     public void testValidLValueAssignment() {
@@ -498,8 +499,8 @@ public class TypeAnalysisTest {
     /**
      * Invalid lvalue: (i + 2) is used on the left-hand side.
      * Example:
-     *    int i;
-     *    (i+2) = 3;
+     * int i;
+     * (i+2) = 3;
      */
     @Test
     public void testInvalidLValueAssignment_BinOp() {
@@ -559,5 +560,116 @@ public class TypeAnalysisTest {
         assertTrue(ta.getNumErrors() > 0,
                 "Using foo().a (where foo() is not an lvalue) as the left-hand side should produce an error.");
     }
-}
 
+    @Test
+    public void testGlobalShadowingTypes() {
+        // Global variable: int x;
+        VarDecl globalX = new VarDecl(BaseType.INT, "x");
+
+        // Function foo: declares a local variable x of type char that shadows the global x.
+        VarDecl localX = new VarDecl(BaseType.CHAR, "x");
+        VarExpr usageInFoo = new VarExpr("x");
+        // The function returns the usage of x.
+        Return retFoo = new Return(usageInFoo);
+        // Build foo's block with the local declaration and return statement.
+        Block fooBlock = new Block(new ArrayList<>(List.of(localX)), new ArrayList<>(List.of(retFoo)));
+        FunDef foo = new FunDef(BaseType.CHAR, "foo", new ArrayList<>(), fooBlock);
+
+        // Function bar: does not declare a local variable x.
+        // Thus, usage of x in bar should resolve to the global variable.
+        VarExpr usageInBar = new VarExpr("x");
+        Return retBar = new Return(usageInBar);
+        Block barBlock = new Block(new ArrayList<>(), new ArrayList<>(List.of(retBar)));
+        FunDef bar = new FunDef(BaseType.INT, "bar", new ArrayList<>(), barBlock);
+
+        // Build the program with the global declaration and both functions.
+        List<Decl> decls = new ArrayList<>();
+        decls.add(globalX);
+        decls.add(foo);
+        decls.add(bar);
+        Program prog = new Program(decls);
+
+        // Run the type analysis pass.
+        TypeAnalyzer ta = new TypeAnalyzer();
+        ta.visit(prog);
+
+        // Check that the usage in foo has type char (the local declaration),
+        // while the usage in bar has type int (from the global variable).
+        assertEquals(BaseType.CHAR, usageInFoo.type, "Usage in foo should resolve to the locally declared type (char)");
+        assertEquals(BaseType.INT, usageInBar.type, "Usage in bar should resolve to the global type (int)");
+
+        // Expect no type errors.
+        assertEquals(0, ta.getNumErrors(), "No type errors expected when shadowing is correctly handled");
+    }
+
+    @Test
+    public void testFunctionShadowedByLocalVariable() {
+        // Global function: int foo() { return 42; }
+        Block fooBlock = new Block(
+                new ArrayList<>(),
+                List.of(new Return(new IntLiteral(42)))
+        );
+        FunDef globalFoo = new FunDef(BaseType.INT, "foo", new ArrayList<>(), fooBlock);
+
+        // Function bar:
+        // Declare a local variable 'foo' that shadows the global function.
+        VarDecl localFoo = new VarDecl(BaseType.INT, "foo");
+        // Then, in the same function, attempt to call 'foo()'
+        FunCallExpr callFoo = new FunCallExpr("foo", new ArrayList<>());
+        // Return the result of the call
+        Return ret = new Return(callFoo);
+        // The block for bar has the local declaration and then the return statement.
+        Block barBlock = new Block(
+                new ArrayList<>(List.of(localFoo)),
+                new ArrayList<>(List.of(ret))
+        );
+        FunDef bar = new FunDef(BaseType.INT, "bar", new ArrayList<>(), barBlock);
+
+        // Build the program with both declarations.
+        List<Decl> decls = new ArrayList<>();
+        decls.add(globalFoo);
+        decls.add(bar);
+        Program prog = new Program(decls);
+
+        // Run semantic analysis (which includes type analysis)
+        SemanticAnalyzer sem = new SemanticAnalyzer();
+        sem.analyze(prog);
+
+        // Since the call to 'foo()' inside 'bar' should resolve to the local variable (not a function),
+        // type analysis should record an error.
+        assertTrue(sem.getNumErrors() > 0, "Expected an error due to a function being shadowed by a local variable");
+    }
+
+
+    @Test
+    void testDuplicateStructDefinition() {
+        // Create the first struct "Point" with one field.
+        VarDecl field1 = new VarDecl(BaseType.INT, "x");
+        List<VarDecl> fields1 = new ArrayList<>();
+        fields1.add(field1);
+        StructTypeDecl struct1 = new StructTypeDecl("Point", fields1);
+
+        // Create a second struct "Point" (duplicate) with a different field.
+        VarDecl field2 = new VarDecl(BaseType.INT, "y");
+        List<VarDecl> fields2 = new ArrayList<>();
+        fields2.add(field2);
+        StructTypeDecl struct2 = new StructTypeDecl("Point", fields2);
+
+        // Build a program that contains both struct declarations.
+        List<Decl> decls = new ArrayList<>();
+        decls.add(struct1);
+        decls.add(struct2);
+        // Adding a dummy main function to complete the program.
+        FunDef mainFun = new FunDef(BaseType.INT, "main", new ArrayList<>(), new Block(new ArrayList<>(), new ArrayList<>()));
+        decls.add(mainFun);
+        Program prog = new Program(decls);
+
+        // Run name analysis.
+        TypeAnalyzer ta = new TypeAnalyzer();
+         ta.visit(prog);
+
+        // The duplicate struct definitions should be detected.
+        assertTrue( ta.getNumErrors() > 0, "Duplicate struct definitions should cause a name analysis error");
+    }
+
+}

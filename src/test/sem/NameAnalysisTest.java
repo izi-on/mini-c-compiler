@@ -219,32 +219,155 @@ public class NameAnalysisTest {
     }
 
     @Test
-    void testDuplicateStructDefinition() {
-        // Create the first struct "Point" with one field.
-        VarDecl field1 = new VarDecl(BaseType.INT, "x");
-        List<VarDecl> fields1 = new ArrayList<>();
-        fields1.add(field1);
-        StructTypeDecl struct1 = new StructTypeDecl("Point", fields1);
+    void testGlobalShadowing2() {
+        // Global variable: int x;
+        VarDecl globalX = new VarDecl(BaseType.INT, "x");
 
-        // Create a second struct "Point" (duplicate) with a different field.
-        VarDecl field2 = new VarDecl(BaseType.INT, "y");
-        List<VarDecl> fields2 = new ArrayList<>();
-        fields2.add(field2);
-        StructTypeDecl struct2 = new StructTypeDecl("Point", fields2);
+        // Function foo: declares a local variable 'x' that shadows the global
+        VarDecl localXFoo = new VarDecl(BaseType.INT, "x");
+        VarExpr usageInFoo = new VarExpr("x");
+        Return retFoo = new Return(usageInFoo);
+        // Build foo's block: declare local x and then return x (should resolve to localXFoo)
+        Block fooBlock = new Block(new ArrayList<>(List.of(localXFoo)), new ArrayList<>(List.of(retFoo)));
+        FunDef foo = new FunDef(BaseType.INT, "foo", new ArrayList<>(), fooBlock);
 
-        // Build a program that contains both struct declarations.
+        // Function bar: does not declare a local x; usage should resolve to global x
+        VarExpr usageInBar = new VarExpr("x");
+        Return retBar = new Return(usageInBar);
+        Block barBlock = new Block(new ArrayList<>(), new ArrayList<>(List.of(retBar)));
+        FunDef bar = new FunDef(BaseType.INT, "bar", new ArrayList<>(), barBlock);
+
         List<Decl> decls = new ArrayList<>();
-        decls.add(struct1);
-        decls.add(struct2);
-        // Adding a dummy main function to complete the program.
-        FunDef mainFun = new FunDef(BaseType.INT, "main", new ArrayList<>(), new Block(new ArrayList<>(), new ArrayList<>()));
-        decls.add(mainFun);
+        decls.add(globalX);
+        decls.add(foo);
+        decls.add(bar);
         Program prog = new Program(decls);
 
-        // Run name analysis.
         NameAnalyzer na = new NameAnalyzer();
         na.visit(prog);
 
-        // The duplicate struct definitions should be detected.
-        assertTrue(na.getNumErrors() > 0, "Duplicate struct definitions should cause a name analysis error");
-    }}
+        // In foo, the usage of 'x' must resolve to the local declaration (localXFoo)
+        assertNotNull(usageInFoo.vd, "Usage in foo should be linked to a declaration");
+        assertEquals(localXFoo, usageInFoo.vd, "Usage in foo should resolve to the local 'x'");
+
+        // In bar, the usage of 'x' must resolve to the global declaration (globalX)
+        assertNotNull(usageInBar.vd, "Usage in bar should be linked to a declaration");
+        assertEquals(globalX, usageInBar.vd, "Usage in bar should resolve to the global 'x'");
+
+        assertEquals(0, na.getNumErrors(), "No errors expected for proper shadowing in globalShadowing2");
+    }
+
+    @Test
+    void testNestedGlobalShadowing() {
+        // Global variable: int x;
+        VarDecl globalX = new VarDecl(BaseType.INT, "x");
+
+        // Function foo: declares a local variable 'x' that shadows the global
+        VarDecl localX = new VarDecl(BaseType.INT, "x");
+        // Inside foo, create an inner block that does NOT redeclare 'x'
+        VarExpr innerUsage = new VarExpr("x");
+        Block innerBlock = new Block(new ArrayList<>(), new ArrayList<>(List.of(new ExprStmt(innerUsage))));
+
+        // Also in foo, use 'x' in the outer block
+        VarExpr outerUsage = new VarExpr("x");
+        List<Stmt> fooStmts = new ArrayList<>();
+        fooStmts.add(innerBlock);
+        fooStmts.add(new Return(outerUsage));
+        Block fooBlock = new Block(new ArrayList<>(List.of(localX)), fooStmts);
+        FunDef foo = new FunDef(BaseType.INT, "foo", new ArrayList<>(), fooBlock);
+
+        // Function bar: no local declaration; usage should resolve to the global variable
+        VarExpr barUsage = new VarExpr("x");
+        Block barBlock = new Block(new ArrayList<>(), new ArrayList<>(List.of(new Return(barUsage))));
+        FunDef bar = new FunDef(BaseType.INT, "bar", new ArrayList<>(), barBlock);
+
+        List<Decl> decls = new ArrayList<>();
+        decls.add(globalX);
+        decls.add(foo);
+        decls.add(bar);
+        Program prog = new Program(decls);
+
+        NameAnalyzer na = new NameAnalyzer();
+        na.visit(prog);
+
+        // Inside foo, both innerUsage and outerUsage should resolve to localX.
+        assertNotNull(innerUsage.vd, "Inner usage in foo should be linked to a declaration");
+        assertEquals(localX, innerUsage.vd, "Inner usage in foo should resolve to the local 'x'");
+
+        assertNotNull(outerUsage.vd, "Outer usage in foo should be linked to a declaration");
+        assertEquals(localX, outerUsage.vd, "Outer usage in foo should resolve to the local 'x'");
+
+        // In bar, usage should resolve to the global variable.
+        assertNotNull(barUsage.vd, "Usage in bar should be linked to a declaration");
+        assertEquals(globalX, barUsage.vd, "Usage in bar should resolve to the global 'x'");
+
+        assertEquals(0, na.getNumErrors(), "No errors expected for proper nested shadowing");
+    }
+
+    @Test
+    public void testLocalVariableShadowsFunction() {
+        // Global function: int foo() { return 42; }
+        FunDef globalFoo = new FunDef(
+                BaseType.INT,
+                "foo",
+                new ArrayList<>(),
+                new Block(
+                        new ArrayList<>(),
+                        new ArrayList<>(List.of(new Return(new IntLiteral(42))))
+                )
+        );
+
+        // In function bar:
+        // (a) In the outer block, a call to foo() should resolve to the global function.
+        FunCallExpr callFooOuter = new FunCallExpr("foo", new ArrayList<>());
+
+        // (b) In an inner block, declare a local variable named "foo" (type int).
+        VarDecl localFoo = new VarDecl(BaseType.INT, "foo");
+        // Inside that inner block, use the identifier as a variable.
+        VarExpr usageFooLocal = new VarExpr("foo");
+        // Also, attempt to call foo() within the inner block.
+        // Since the local variable shadows the global function, this function call should be flagged as erroneous.
+        FunCallExpr callFooLocal = new FunCallExpr("foo", new ArrayList<>());
+
+        // Build the inner block: it declares the local variable and then contains two expression statements.
+        Block innerBlock = new Block(
+                new ArrayList<>(List.of(localFoo)),
+                new ArrayList<>(List.of(new ExprStmt(usageFooLocal), new ExprStmt(callFooLocal)))
+        );
+
+        // Build the outer block of function bar:
+        // First, perform a function call to foo() (should resolve to the global function).
+        // Then, include the inner block that introduces the shadowing.
+        // Finally, return 0.
+        List<Stmt> barStmts = new ArrayList<>();
+        barStmts.add(new ExprStmt(callFooOuter));
+        barStmts.add(innerBlock);
+        barStmts.add(new Return(new IntLiteral(0)));
+        Block barBlock = new Block(new ArrayList<>(), barStmts);
+        FunDef bar = new FunDef(BaseType.INT, "bar", new ArrayList<>(), barBlock);
+
+        // Build the program containing the global function and function bar.
+        List<Decl> decls = new ArrayList<>();
+        decls.add(globalFoo);
+        decls.add(bar);
+        Program prog = new Program(decls);
+
+        // Run the name analysis pass.
+        NameAnalyzer na = new NameAnalyzer();
+        na.visit(prog);
+
+        // --- Check outer block usage ---
+        // The outer call to foo() should resolve to the global function.
+        assertNotNull(callFooOuter.fd, "The outer call to foo() should be linked to a function declaration");
+        assertEquals(globalFoo, callFooOuter.fd, "The outer call should resolve to the global function 'foo'");
+
+        // --- Check inner block usage ---
+        // The variable usage inside the inner block should resolve to the local variable.
+        assertNotNull(usageFooLocal.vd, "The usage of foo in the inner block should be linked to a declaration");
+        assertEquals(localFoo, usageFooLocal.vd, "The inner usage should resolve to the local variable 'foo'");
+
+        // The function call inside the inner block is an error because lookup returns a variable.
+        // We expect that the NameAnalyzer has recorded at least one error.
+        assertTrue(na.getNumErrors() > 0, "A function call to a shadowed identifier should produce a name error");
+    }
+}

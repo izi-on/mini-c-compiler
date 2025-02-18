@@ -1,6 +1,7 @@
 package sem;
 
 import ast.*;
+import sem.error.DoubleDeclErr;
 import sem.error.SymbolMismatchErr;
 import sem.error.TypeMismatchErr;
 import sem.error.UnexpectedTypeErr;
@@ -12,7 +13,6 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class TypeAnalyzer extends BaseSemanticAnalyzer {
-
 	private void checkValidLValue(Expr expr) {
 		if (expr instanceof ArrayAccessExpr)
 			checkValidLValue(((ArrayAccessExpr) expr).array);
@@ -33,6 +33,16 @@ public class TypeAnalyzer extends BaseSemanticAnalyzer {
 		}
 		r.run();
 		scope = scope.getOuter();
+	}
+
+	// have a separate get method for structs because they have their own namespace for lookups and other identifiers should not intersect with them
+	private StructTypeSymbol getStruct(String structName) {
+		Symbol s = scope.lookup(StructTypeSymbol.prefix() + structName);
+		return (StructTypeSymbol) s;
+	}
+
+	private void setStruct(StructTypeSymbol struct) {
+		scope.put(struct);
 	}
 
 	// Helper: checks that the looked-up symbol is a type symbol.
@@ -134,6 +144,11 @@ public class TypeAnalyzer extends BaseSemanticAnalyzer {
 
 			// --- Struct declaration ---
 			case StructTypeDecl std -> {
+				// check if not double decl for struct
+				if (getStruct(std.name) != null) {
+					error(new DoubleDeclErr(std));
+					yield BaseType.UNKNOWN;
+				}
 				AtomicReference<Scope> structScope = new AtomicReference<>();
 				withNewScope(() -> {
 					// Type-check each field
@@ -148,7 +163,7 @@ public class TypeAnalyzer extends BaseSemanticAnalyzer {
 					structScope.set(getScope()); // capture the scope for which the struct was declared.
 				});
 				StructType structType = new StructType(std.name);
-				scope.put(new StructTypeSymbol(std.name, structType, structScope.get()));
+				setStruct(new StructTypeSymbol(std.name, structType, structScope.get()));
 				yield structType;
 			}
 
@@ -310,7 +325,7 @@ public class TypeAnalyzer extends BaseSemanticAnalyzer {
 					yield BaseType.UNKNOWN;
 				}
 				StructType structType = (StructType) exprType;
-				StructTypeSymbol structSymbol = (StructTypeSymbol) scope.lookup(structType.typeName);
+				StructTypeSymbol structSymbol = (StructTypeSymbol) getStruct(structType.typeName);
 				if (structSymbol == null) {
 					error(new SymbolMismatchErr(structSymbol, new NullSymbol()));
 					yield BaseType.UNKNOWN;
@@ -318,7 +333,7 @@ public class TypeAnalyzer extends BaseSemanticAnalyzer {
 
 				// check if field is present in the struct scope and get its type
 				Scope structScope = structSymbol.declScope;
-				TypeSymbol fieldSymbol = (TypeSymbol) structScope.lookup(fa.field);
+				TypeSymbol fieldSymbol = (TypeSymbol) structScope.lookupCurrent(fa.field);
 				if (fieldSymbol == null) {
 					error(new SymbolMismatchErr(new TypeSymbol(fa.field, BaseType.UNKNOWN), new NullSymbol()));
 					yield BaseType.UNKNOWN;
@@ -395,7 +410,7 @@ public class TypeAnalyzer extends BaseSemanticAnalyzer {
 
 			// for struct types, ensure that the struct is declared previously
 			case StructType st -> {
-				Symbol s = scope.lookup(st.typeName);
+				Symbol s = getStruct(st.typeName);
 				if (!isValidTypeSymbol(s, st.typeName)) {
 					yield BaseType.UNKNOWN;
 				}

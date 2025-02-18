@@ -18,6 +18,7 @@ public final class FunDef extends Decl {
         List<ASTNode> children = new ArrayList<ASTNode>();
         children.add(type);
         children.addAll(params);
+        children.add(block);
         return children;
     }
 
