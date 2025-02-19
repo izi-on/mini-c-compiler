@@ -24,7 +24,6 @@ public abstract class BaseSemanticAnalyzer extends CompilerPass {
 	protected void error(String message) {
 		System.out.println("semantic error: " + message);
 		incError();
-		throw new RuntimeException();
 	}
 	protected void error(AbstractError error) {
 		error(error.msg());
