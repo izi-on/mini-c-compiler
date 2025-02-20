@@ -198,7 +198,12 @@ public class Parser extends CompilerPass {
     private Type declArrayDims(Type type) {
         if (accept(Category.LSBR)) {
             nextToken();
-            int size = Integer.parseInt(expect(Category.INT_LITERAL).data);
+            int size = 0;
+            try {
+                size = Integer.parseInt(expect(Category.INT_LITERAL).data);
+            } catch (NumberFormatException e) {
+                error(Category.INT_LITERAL);
+            }
             expect(Category.RSBR);
             type = new ArrayType(declArrayDims(type), size); // matrix type decl is from right to left
         }

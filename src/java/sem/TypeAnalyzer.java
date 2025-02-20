@@ -6,13 +6,20 @@ import sem.error.SymbolMismatchErr;
 import sem.error.TypeMismatchErr;
 import sem.error.UnexpectedTypeErr;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class TypeAnalyzer extends BaseSemanticAnalyzer {
+
+	private Type getCurrentFunctionType() {
+		Symbol s = scope.lookup(CurrentFunctionTypeSymbol.prefix());
+		if (s == null) {
+			error("No current function type found in scope (are we in a function?)");
+			return BaseType.UNKNOWN;
+		}
+		return ((TypeSymbol) s).type;
+
+	}
 	private void checkValidLValue(Expr expr) {
 		if (expr instanceof ArrayAccessExpr)
 			checkValidLValue(((ArrayAccessExpr) expr).array);
@@ -25,12 +32,12 @@ public class TypeAnalyzer extends BaseSemanticAnalyzer {
 		else
 			error("Invalid lvalue");
 	}
-	private void withNewScope(List<VarDecl> params, Runnable r, Map<String, String> metadata) {
+	private void withNewScope(List<VarDecl> params, Runnable r, CurrentFunctionTypeSymbol funcType) {
 		scope = new Scope(scope);
-		scope.setMetadata(metadata);
 		for (VarDecl var : params) {
 			scope.put(new TypeSymbol(var.name, var.type));
 		}
+		scope.put(funcType);
 		r.run();
 		scope = scope.getOuter();
 	}
@@ -112,11 +119,9 @@ public class TypeAnalyzer extends BaseSemanticAnalyzer {
 				Type funcType = new AggregateType(types);
 				scope.put(new TypeSymbol(fd.name, funcType));
 
-				Map<String, String> metadata = new HashMap<>(); // add the function name as metadata for type lookup
-				metadata.put("function", fd.name);
 				withNewScope(fd.params, () -> {
 					visit(fd.block);
-				}, metadata);
+				}, new CurrentFunctionTypeSymbol(funcType));
 				yield funcType;
 			}
 
@@ -368,44 +373,29 @@ public class TypeAnalyzer extends BaseSemanticAnalyzer {
 			}
 
 			case Return r -> {
-				yield scope.lookupMetadata("function")
-						.map(s -> {
-							Symbol lookupRes = scope.lookup(s);
-							if (lookupRes == null) {
-								error(new SymbolMismatchErr(new TypeSymbol(s, BaseType.UNKNOWN), new NullSymbol()));
-								return BaseType.NONE;
-							} else if (!(lookupRes instanceof TypeSymbol)) {
-								error(new SymbolMismatchErr(new TypeSymbol(s, BaseType.UNKNOWN), lookupRes));
-								return BaseType.NONE;
-							}
-							Type typeOfSymbol = ((TypeSymbol) lookupRes).type;
-							if (!(typeOfSymbol instanceof AggregateType)) {
-								error(new UnexpectedTypeErr(typeOfSymbol));
-								return BaseType.NONE;
-							}
-							AggregateType funcSymbType = (AggregateType) typeOfSymbol;
-							Type returnType = funcSymbType.types.get(0);
+				Type typeOfSymbol = getCurrentFunctionType();
+				if (!(typeOfSymbol instanceof AggregateType)) {
+					error(new UnexpectedTypeErr(typeOfSymbol));
+					yield BaseType.NONE;
+				}
+				AggregateType funcSymbType = (AggregateType) typeOfSymbol;
+				Type returnType = funcSymbType.types.get(0);
 
-							if (returnType.equals(BaseType.VOID) && r.expr.isPresent()) {
-								error("returning a value from a void function");
-								return BaseType.NONE;
-							} else if (!returnType.equals(BaseType.VOID) && r.expr.isEmpty()) {
-								error("returning nothing from a non-void function");
-								return BaseType.NONE;
-							}
+				if (returnType.equals(BaseType.VOID) && r.expr.isPresent()) {
+					error("returning a value from a void function");
+					yield BaseType.NONE;
+				} else if (!returnType.equals(BaseType.VOID) && r.expr.isEmpty()) {
+					error("returning nothing from a non-void function");
+					yield BaseType.NONE;
+				}
 
-							r.expr.ifPresent(e -> {
-								Type exprType = visit(e);
-								if (!returnType.equals(exprType)) {
-									error(new TypeMismatchErr(returnType, exprType));
-								}
-							});
-							return BaseType.NONE;
-						})
-						.orElseGet(() -> {
-							error("return statement outside of a function");
-							return BaseType.NONE;
-						});
+				r.expr.ifPresent(e -> {
+					Type exprType = visit(e);
+					if (!returnType.equals(exprType)) {
+						error(new TypeMismatchErr(returnType, exprType));
+					}
+				});
+				yield BaseType.NONE;
 			}
 
 			// for struct types, ensure that the struct is declared previously

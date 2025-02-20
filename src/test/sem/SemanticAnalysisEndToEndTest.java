@@ -928,4 +928,74 @@ public class SemanticAnalysisEndToEndTest {
         int errors = runSemanticAnalysis(input);
         assertTrue(errors > 0, "Incorrect multidimensional array access should produce semantic errors");
     }
+
+    @Test
+    public void testReturnStmnt() throws IOException {
+        String input = """
+            int foo() { return 5; }
+            int main() { return foo(); }
+            """;
+        int errors = runSemanticAnalysis(input);
+        assertEquals(0, errors, "Valid return statement should be semantically correct");
+    }
+
+    @Test
+    public void testReturnStmntHasErrorsWhenVoidAndReturns() throws IOException {
+        String input = """
+            void foo() { return 5; }
+            int main() { return foo(); }
+            """;
+        int errors = runSemanticAnalysis(input);
+        assertTrue(errors > 0, "Return statement with void function and return value should produce semantic errors");
+    }
+
+    @Test
+    public void testReturnStmntHasErrorsWhenNonVoidAndNoReturns() throws IOException {
+        String input = """
+            int foo() {return;}
+            int main() { return foo(); }
+            """;
+        int errors = runSemanticAnalysis(input);
+        assertTrue(errors > 0, "Return statement with non-void function and no return value should produce semantic errors");
+    }
+
+    @Test
+    public void testReturnInsideOtherBodies() throws IOException {
+        String input = """
+            int foo(int x) {
+                if (x > 0) {
+                    return 1;
+                } else {
+                    return 0;
+                }
+                while (x < 10) {
+                    return 1;
+                }
+            }
+            int main() { return foo(1); }
+            """;
+        int errors = runSemanticAnalysis(input);
+        assertEquals(0, errors, "Return statement inside if-else should be semantically correct");
+    }
+
+    @Test
+    public void testDifferentReturnTypesOfDifferentFunctions() throws IOException {
+        String input = """
+            int foo() { return 1; }
+            char bar() { return 'a'; }
+            int main() { return foo() + bar(); }
+            """;
+        int errors = runSemanticAnalysis(input);
+        assertTrue(errors > 0, "Different return types of different functions should produce semantic errors");
+    }
+
+    @Test
+    public void testArrayAndPointerReturnTypes() throws IOException {
+        String input = """
+            int* foo() { int smthg[5]; return &(smthg[1]); }
+            int main() { return *foo(); }
+            """;
+        int errors = runSemanticAnalysis(input);
+        assertTrue(errors == 0, "Array and pointer return types should produce semantic errors");
+    }
 }

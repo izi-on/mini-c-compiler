@@ -9,6 +9,6 @@ public class StructTypeSymbol extends TypeSymbol {
         this.declScope = scope;
     }
     static public String prefix() {
-        return "struct "; //space is important
+        return "struct%"; //space is important
     }
 }

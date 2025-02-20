@@ -17,7 +17,7 @@ import java.util.function.Predicate;
  * and produces tokens.
  */
 public class Tokeniser extends CompilerPass {
-
+    TrieNode root = Token.createRootSymbols();
     private final Scanner scanner;
 
     public Tokeniser(Scanner scanner) {
@@ -268,7 +268,7 @@ public class Tokeniser extends CompilerPass {
         }
 
         // 3) Attempt to match known symbols using a Trie
-        TrieNode trieCursor = Token.createRootSymbols();
+        TrieNode trieCursor = root;
 
         // We'll store each character that continues the path in the trie
         StringBuilder symbolBuilder = new StringBuilder();
