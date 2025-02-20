@@ -102,7 +102,6 @@ public class Parser extends CompilerPass {
             token = buffer.remove();
         else
             token = tokeniser.nextToken();
-        System.out.println(token);
     }
 
     private Token expect(Category... expected) {

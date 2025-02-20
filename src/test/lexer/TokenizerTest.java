@@ -38,6 +38,21 @@ class TokeniserTest {
         return tokens;
     }
 
+    private int tokenizeStringAndGetErrorCount(String code, File tempFile) throws IOException {
+        try (FileWriter writer = new FileWriter(tempFile)) {
+            writer.write(code);
+        }
+        Scanner scanner = new Scanner(tempFile);
+        Tokeniser tokeniser = new Tokeniser(scanner);
+        // Consume tokens until EOF
+        while (true) {
+            Token t = tokeniser.nextToken();
+            System.out.println(t);
+            if (t.category == Token.Category.EOF) break;
+        }
+        return tokeniser.getNumErrors();
+    }
+
     @Test
     void testSingleCharacterSymbols(@TempDir Path tempDir) throws IOException {
         String code = "= { } ( ) [ ] ; , . + - * / % & < >";
@@ -935,5 +950,212 @@ class TokeniserTest {
         // that the string literal is recognized, etc.
     }
 
+    @Test
+    public void fibonacci(@TempDir File tempDir) throws IOException {
+        File tempFile = new File(tempDir, "fibonacci.txt");
+        // A simple fibonacci-like program (content isn’t critical for the lexer)
+        String code = "int main() { int n; /* fibonacci program */ return n; }";
+        int errors = tokenizeStringAndGetErrorCount(code, tempFile);
+        assertEquals(0, errors, "fibonacci: expected 0 lexer errors");
+    }
+
+    @Test
+    public void intTest(@TempDir File tempDir) throws IOException {
+        File tempFile = new File(tempDir, "int.txt");
+        String code = "int";
+        int errors = tokenizeStringAndGetErrorCount(code, tempFile);
+        assertEquals(0, errors, "int: expected 0 lexer errors");
+    }
+
+    @Test
+    public void intintint(@TempDir File tempDir) throws IOException {
+        File tempFile = new File(tempDir, "intintint.txt");
+        // This should be read as a single identifier "intintint"
+        String code = "intintint";
+        int errors = tokenizeStringAndGetErrorCount(code, tempFile);
+        assertEquals(0, errors, "intintint: expected 0 lexer errors");
+    }
+
+    @Test
+    public void single_comment(@TempDir File tempDir) throws IOException {
+        File tempFile = new File(tempDir, "single_comment.txt");
+        String code = "// This is a single-line comment\nint main() { return 0; }";
+        int errors = tokenizeStringAndGetErrorCount(code, tempFile);
+        assertEquals(0, errors, "single_comment: expected 0 lexer errors");
+    }
+
+    @Test
+    public void multi_comment(@TempDir File tempDir) throws IOException {
+        File tempFile = new File(tempDir, "multi_comment.txt");
+        String code = "/* This is a multi-line comment */\nint main() { return 0; }";
+        int errors = tokenizeStringAndGetErrorCount(code, tempFile);
+        assertEquals(0, errors, "multi_comment: expected 0 lexer errors");
+    }
+
+    @Test
+    public void nested_comments(@TempDir File tempDir) throws IOException {
+        File tempFile = new File(tempDir, "nested_comments.txt");
+        // Assuming nested comments are supported, this input should be processed correctly.
+        String code = "/* Outer comment /* nested comment */ outer end */\nint main() { return 0; }";
+        int errors = tokenizeStringAndGetErrorCount(code, tempFile);
+        assertEquals(0, errors, "nested_comments: expected 0 lexer errors");
+    }
+
+    @Test
+    public void all_tokens(@TempDir File tempDir) throws IOException {
+        File tempFile = new File(tempDir, "all_tokens.txt");
+        // A string containing a wide range of tokens (keywords, operators, literals, etc.)
+        String code = "#include \"header.h\"\n" +
+                "int main() { \n" +
+                "  int a = 123;\n" +
+                "  char c = 'x';\n" +
+                "  a = a + 1 - 2 * 3 / 4 % 5;\n" +
+                "  if(a==123 && a!=456) { return 0; } else { return 1; }\n" +
+                "}\n";
+        int errors = tokenizeStringAndGetErrorCount(code, tempFile);
+        assertEquals(0, errors, "all_tokens: expected 0 lexer errors");
+    }
+
+    @Test
+    public void escape_codes_1(@TempDir File tempDir) throws IOException {
+        File tempFile = new File(tempDir, "escape_codes_1.txt");
+        // Valid escape sequences
+        String code = "char c = '\\n';\n" +
+                "char d = '\\t';\n" +
+                "String s = \"Hello\\nWorld\";\n" +
+                "int main() { return 0; }";
+        int errors = tokenizeStringAndGetErrorCount(code, tempFile);
+        assertEquals(0, errors, "escape_codes_1: expected 0 lexer errors");
+    }
+
+    @Test
+    public void escape_codes_2(@TempDir File tempDir) throws IOException {
+        File tempFile = new File(tempDir, "escape_codes_2.txt");
+        // Invalid escape sequence: \x is not allowed.
+        String code = "char c = '\\x';\nint main() { return 0; }";
+        int errors = tokenizeStringAndGetErrorCount(code, tempFile);
+        assertTrue(errors > 0, "escape_codes_2: expected lexer errors due to invalid escape code");
+    }
+
+    @Test
+    public void multiple_characters_in_single_quotes(@TempDir File tempDir) throws IOException {
+        File tempFile = new File(tempDir, "multiple_characters_in_single_quotes.txt");
+        // Invalid: char literal must contain exactly one character (or a valid escape sequence)
+        String code = "char c = 'ab';\nint main() { return 0; }";
+        int errors = tokenizeStringAndGetErrorCount(code, tempFile);
+        assertTrue(errors > 0, "multiple_characters_in_single_quotes: expected lexer errors");
+    }
+
+    @Test
+    public void char_assign_digits(@TempDir File tempDir) throws IOException {
+        File tempFile = new File(tempDir, "char_assign_digits.txt");
+        // Invalid: '123' is not a valid char literal.
+        String code = "char c = '123';\nint main() { return 0; }";
+        int errors = tokenizeStringAndGetErrorCount(code, tempFile);
+        assertTrue(errors > 0, "char_assign_digits: expected lexer errors due to invalid char literal with digits");
+    }
+
+    @Test
+    public void most_chars(@TempDir File tempDir) throws IOException {
+        File tempFile = new File(tempDir, "most_chars.txt");
+        // Test a string literal that contains a large variety of allowed characters.
+        String code = "String s = \"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+-={}[]|:;,.<>/?\";\n" +
+                "int main() { return 0; }";
+        int errors = tokenizeStringAndGetErrorCount(code, tempFile);
+        assertEquals(0, errors, "most_chars: expected 0 lexer errors");
+    }
+
+    @Test
+    public void no_main(@TempDir File tempDir) throws IOException {
+        File tempFile = new File(tempDir, "no_main.txt");
+        // A valid program without a main function (lexer doesn’t enforce program semantics).
+        String code = "int foo() { return 1; }";
+        int errors = tokenizeStringAndGetErrorCount(code, tempFile);
+        assertEquals(0, errors, "no_main: expected 0 lexer errors");
+    }
+
+    @Test
+    public void minimal(@TempDir File tempDir) throws IOException {
+        File tempFile = new File(tempDir, "minimal.txt");
+        String code = "int main() { return 0; }";
+        int errors = tokenizeStringAndGetErrorCount(code, tempFile);
+        assertEquals(0, errors, "minimal: expected 0 lexer errors");
+    }
+
+    @Test
+    public void undefined_token(@TempDir File tempDir) throws IOException {
+        File tempFile = new File(tempDir, "undefined_token.txt");
+        // Use an undefined token such as a non-ASCII character (e.g. 'é').
+        String code = "é\nint main() { return 0; }";
+        int errors = tokenizeStringAndGetErrorCount(code, tempFile);
+        assertTrue(errors > 0, "undefined_token: expected lexer errors due to undefined token");
+    }
+
+    @Test
+    public void identifiers(@TempDir File tempDir) throws IOException {
+        File tempFile = new File(tempDir, "identifiers.txt");
+        // A sequence of valid identifiers.
+        String code = "foo bar baz _private Var123 intValue";
+        int errors = tokenizeStringAndGetErrorCount(code, tempFile);
+        assertEquals(0, errors, "identifiers: expected 0 lexer errors");
+    }
+
+    @Test
+    public void includes(@TempDir File tempDir) throws IOException {
+        File tempFile = new File(tempDir, "includes.txt");
+        // Valid include directive (with quotes).
+        String code = "#include \"myheader.h\"\nint main() { return 0; }";
+        int errors = tokenizeStringAndGetErrorCount(code, tempFile);
+        assertEquals(0, errors, "includes: expected 0 lexer errors");
+    }
+
+    @Test
+    public void empty(@TempDir File tempDir) throws IOException {
+        File tempFile = new File(tempDir, "empty.txt");
+        String code = "";
+        int errors = tokenizeStringAndGetErrorCount(code, tempFile);
+        assertEquals(0, errors, "empty: expected 0 lexer errors for an empty file");
+    }
+
+    @Test
+    public void division(@TempDir File tempDir) throws IOException {
+        File tempFile = new File(tempDir, "division.txt");
+        // Test division operator
+        String code = "int main() { int a = 10 / 2; return a; }";
+        int errors = tokenizeStringAndGetErrorCount(code, tempFile);
+        assertEquals(0, errors, "division: expected 0 lexer errors");
+    }
+
+    @Test
+    void testTripleEqualIdentifier(@TempDir Path tempDir) throws IOException {
+        // The input "===abc" should be tokenized as:
+        // "==" (EQ), "=" (ASSIGN), "abc" (IDENTIFIER), EOF.
+        // Hence, no lexing errors should be reported.
+        String code = "===abc";
+        File tempFile = tempDir.resolve("tripleEqualIdentifier.txt").toFile();
+        int errors = tokenizeStringAndGetErrorCount(code, tempFile);
+        assertEquals(0, errors, "Expected no lexer errors for input \"===abc\"");
+    }
+
+    @Test
+    void testUnclosedCharLiteral(@TempDir Path tempDir) throws IOException {
+        // The code "char c = 'a;" is missing the closing single quote.
+        // This should trigger a lexing error.
+        String code = "char c = 'a;";
+        File tempFile = tempDir.resolve("unclosedCharLiteral.txt").toFile();
+        int errors = tokenizeStringAndGetErrorCount(code, tempFile);
+        assertTrue(errors > 0, "Expected lexer errors for an unclosed character literal");
+    }
+
+    @Test
+    void testMalformedIntegerLiteral(@TempDir Path tempDir) throws IOException {
+        // The string "123abc" begins with digits but is immediately followed by letters.
+        // This is not a valid integer literal nor a valid identifier.
+        // The tokenizer should report an error.
+        String code = "123abc";
+        File tempFile = tempDir.resolve("malformedIntegerLiteral.txt").toFile();
+        int errors = tokenizeStringAndGetErrorCount(code, tempFile);
+        assertTrue(errors > 0, "Expected lexer errors for a malformed integer literal");
+    }
 
 }
