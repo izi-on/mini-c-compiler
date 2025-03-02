@@ -46,7 +46,7 @@ public final class Label extends AssemblyTextItem {
         return instances.computeIfAbsent(name, Label::new);
     }
 
-    /**
+    /*
      * Creates a fresh label with a unique name.
      *
      * @param nameSuffix A suffix to append to the label's name.

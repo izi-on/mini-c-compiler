@@ -191,7 +191,6 @@ public class Main3 {
 
 
             assert(mode == mode.GEN);
-
             AssemblyPass regAlloc = NaiveRegAlloc.INSTANCE;
             CodeGenerator codegen = new CodeGenerator(regAlloc);
 

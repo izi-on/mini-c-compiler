@@ -9,6 +9,10 @@
 
 package gen.asm;
 
+import ast.BaseType;
+import ast.PointerType;
+import ast.VarDecl;
+
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.ArrayList;
@@ -50,6 +54,18 @@ public final class AssemblyProgram {
 
         public void emit(AssemblyTextItem ati) {
             items.add(ati);
+        }
+
+        public Label emit(VarDecl vd) {
+            Label label = Label.create(vd.name);
+            emit(label);
+            switch (vd.type) {
+                // int or char (we store chars in words)
+                case BaseType bt -> emit(new Directive("word 0"));
+                case PointerType pt -> emit(new Directive("word 0"));
+                default -> throw new IllegalArgumentException("Unsupported type: " + vd.type);
+            }
+            return label;
         }
 
         @Override
@@ -154,6 +170,11 @@ public final class AssemblyProgram {
         @SuppressWarnings("unused")
         public void emit(OpCode.LoadImmediate opcode, Register dst, int immediate) {
             emit(new Instruction.LoadImmediate(opcode, dst, immediate));
+        }
+
+        public void emitSyscall(int code) {
+            emit(OpCode.LI, Register.Arch.v0, code);
+            emit(OpCode.SYSCALL);
         }
 
         @SuppressWarnings("unused")

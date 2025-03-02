@@ -6,12 +6,21 @@ import java.util.List;
 public final class FunDef extends Decl {
     public final List<VarDecl> params;
     public Block block;
+    public boolean isBuiltin = false;
 
     public FunDef(Type type, String name, List<VarDecl> params, Block block) {
 	    this.type = type;
 	    this.name = name;
 	    this.params = params;
         this.block = block;
+    }
+
+    public FunDef(Type type, String name, List<VarDecl> params, Block block, boolean isBuiltin) {
+        this.type = type;
+        this.name = name;
+        this.params = params;
+        this.block = block;
+        this.isBuiltin = isBuiltin;
     }
 
     public List<ASTNode> children() {

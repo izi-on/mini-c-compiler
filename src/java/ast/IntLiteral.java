@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public non-sealed class IntLiteral extends Expr {
-    int value;
+    public int value;
 
     public IntLiteral(int value) {
         this.value = value;

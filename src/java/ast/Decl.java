@@ -5,4 +5,5 @@ public abstract sealed class Decl implements ASTNode
 
     public Type type;
     public String name;
+    public int fpOffset;
 }

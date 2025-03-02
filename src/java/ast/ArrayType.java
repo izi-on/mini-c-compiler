@@ -5,7 +5,7 @@ import java.util.List;
 
 public non-sealed class ArrayType implements Type {
     public Type arrayedType;
-    int size;
+    public int size;
 
     public ArrayType() {}
     public ArrayType(Type arrayedType, int size){

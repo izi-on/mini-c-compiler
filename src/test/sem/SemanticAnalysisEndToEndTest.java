@@ -998,4 +998,18 @@ public class SemanticAnalysisEndToEndTest {
         int errors = runSemanticAnalysis(input);
         assertTrue(errors == 0, "Array and pointer return types should produce semantic errors");
     }
+
+    @Test
+    public void testHiddenMaybe() throws IOException {
+        String input = """
+                int k;
+                void foo(int a){}
+                void main(){
+                if(1){
+                char k;
+                }
+                foo(k);
+                }
+                """;
+    }
 }

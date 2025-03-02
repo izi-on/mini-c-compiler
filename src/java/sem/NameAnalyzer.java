@@ -18,7 +18,8 @@ public class NameAnalyzer extends BaseSemanticAnalyzer {
 				BaseType.VOID,
 				"print_s",
 				List.of(new VarDecl(new PointerType(BaseType.CHAR), "s")),
-				emptyBlock
+				emptyBlock,
+				true
 		));
 
 		// Built-in: void print_i(int i);
@@ -26,7 +27,7 @@ public class NameAnalyzer extends BaseSemanticAnalyzer {
 				BaseType.VOID,
 				"print_i",
 				List.of(new VarDecl(BaseType.INT, "i")),
-				emptyBlock
+				emptyBlock, true
 		));
 
 		// Built-in: void print_c(char c);
@@ -34,7 +35,7 @@ public class NameAnalyzer extends BaseSemanticAnalyzer {
 				BaseType.VOID,
 				"print_c",
 				List.of(new VarDecl(BaseType.CHAR, "c")),
-				emptyBlock
+				emptyBlock, true
 		));
 
 		// Built-in: char read_c();
@@ -42,7 +43,7 @@ public class NameAnalyzer extends BaseSemanticAnalyzer {
 				BaseType.CHAR,
 				"read_c",
 				List.of(),
-				emptyBlock
+				emptyBlock, true
 		));
 
 		// Built-in: int read_i();
@@ -50,7 +51,7 @@ public class NameAnalyzer extends BaseSemanticAnalyzer {
 				BaseType.INT,
 				"read_i",
 				List.of(),
-				emptyBlock
+				emptyBlock, true
 		));
 
 		// Built-in: void* mcmalloc(int size);
@@ -58,7 +59,7 @@ public class NameAnalyzer extends BaseSemanticAnalyzer {
 				new PointerType(BaseType.VOID),
 				"mcmalloc",
 				List.of(new VarDecl(BaseType.INT, "size")),
-				emptyBlock
+				emptyBlock, true
 		));
 	}
 
