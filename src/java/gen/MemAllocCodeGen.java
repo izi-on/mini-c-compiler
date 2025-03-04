@@ -50,47 +50,38 @@ public class MemAllocCodeGen extends CodeGen {
     int fpOffset = 0;
 
     void visit(ASTNode n) {
-        // To complete
+        switch(n) {
+            case FunDef fd -> {
+                createNewFuncFrame(fd);
 
-        // guaranteed non-global variable declarations inside
-        nonGlobal(() -> {
-            switch(n) {
-                case FunDef fd -> {
-                    createNewFuncFrame(fd);
+                // handle old frame pointer addr
+                fpOffset = -4;
+                currentFuncFrame.get().setOffset(StackItem.FRAME_POINTER, fpOffset);
 
-                    // handle old frame pointer addr
-                    fpOffset = -4;
-                    currentFuncFrame.get().setOffset(StackItem.FRAME_POINTER, fpOffset);
-
-                    // handle params
-                    List<VarDecl> params = new ArrayList<>(fd.params);
-                    Collections.reverse(params);
-                    fpOffset = 0;
-                    currentFuncFrame.get().setOffset(StackItem.RETURN_VAL, fpOffset);
-                    fpOffset = TypeSizeGetter.getSize(fd.type); // return type because the caller saved as such
-                    for (VarDecl vd : params) {
-                        currentFuncFrame.get().setOffset(vd, fpOffset);
-                        fpOffset += TypeSizeGetter.getSize(vd.type); // increment by size of type
-                    }
-
-                    // handle return addr
-                    fpOffset = -8;
-                    currentFuncFrame.get().setOffset(StackItem.RETURN_ADDR, fpOffset);
-
-                    visit(fd.block);
-
-                    // after done visiting, set the stack offset to the current frame pointer offset
-                    currentFuncFrame.get().setOffset(StackItem.STACK_POINTER_OFFSET, fpOffset);
+                // handle params
+                List<VarDecl> params = new ArrayList<>(fd.params);
+                Collections.reverse(params);
+                fpOffset = 0;
+                currentFuncFrame.get().setOffset(StackItem.RETURN_VAL, fpOffset);
+                fpOffset = TypeSizeGetter.getSize(fd.type); // return type because the caller saved as such
+                for (VarDecl vd : params) {
+                    currentFuncFrame.get().setOffset(vd, fpOffset);
+                    fpOffset += TypeSizeGetter.getSize(vd.type); // increment by size of type
                 }
 
-                default -> {n.children().forEach(this::visit);}
-            }
-        });
+                // handle return addr
+                fpOffset = -8;
+                currentFuncFrame.get().setOffset(StackItem.RETURN_ADDR, fpOffset);
 
-        // might be global, might be local
-        switch(n) {
+                nonGlobal(() -> visit(fd.block));
+
+                // after done visiting, set the stack offset to the current frame pointer offset
+                currentFuncFrame.get().setOffset(StackItem.STACK_POINTER_OFFSET, fpOffset);
+            }
+
             case VarDecl vd -> {
                 if (global) {
+                    System.out.println("Allocating global variable " + vd.name);
                     Label varLabel = asmProg.dataSection.emit(vd);
                     setGlobalVarLabel(vd, varLabel);
                 } else {
@@ -98,8 +89,9 @@ public class MemAllocCodeGen extends CodeGen {
                     currentFuncFrame.get().setOffset(vd, fpOffset);
                 }
             }
+
             default -> {n.children().forEach(this::visit);}
-        }
+        };
 
     }
 

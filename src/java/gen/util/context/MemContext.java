@@ -30,12 +30,16 @@ public class MemContext {
         }
 
         public Var computeIfGlobal(GlobalVarAction r) {
-            r.apply(MemContext.getAllocator().getGlobalVarLabel(decl).orElseThrow());
+            if (MemContext.getAllocator().getGlobalVarLabel(decl).isPresent()) {
+                r.apply(MemContext.getAllocator().getGlobalVarLabel(decl).get());
+            }
             return this;
         }
 
         public Var computeIfLocal(LocalVarAction r) {
-            r.apply(MemContext.getStackFrame().offsetOf(decl).orElseThrow());
+            if (MemContext.getFuncStackFrame().offsetOf(decl).isPresent()) {
+                r.apply(MemContext.getStackFrame().offsetOf(decl).orElseThrow());
+            }
             return this;
         }
     }

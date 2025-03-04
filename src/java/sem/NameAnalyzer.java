@@ -1,11 +1,10 @@
 package sem;
 
 import ast.*;
-import sem.error.*;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Stream;
+import sem.error.*;
 
 public class NameAnalyzer extends BaseSemanticAnalyzer {
 
@@ -207,6 +206,8 @@ public class NameAnalyzer extends BaseSemanticAnalyzer {
 				}
 				FunctionSymbol fSym = (FunctionSymbol) sym;
 				f.fd = fSym.funDef;
+
+				f.args.forEach(this::visit);
 			}
 
 			case StructTypeDecl std -> {

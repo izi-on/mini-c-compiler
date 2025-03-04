@@ -20,6 +20,75 @@ public class ExprValCodeGen extends CodeGen {
     public Register visit(Expr e) {
         AssemblyProgram.TextSection ts = asmProg.getCurrentTextSection();
         switch (e) {
+            case BinOp binop -> {
+                Register leftReg = visit(binop.lhs);
+                Register rightReg = visit(binop.rhs);
+                Register result = Register.Virtual.create();
+
+                switch (binop.op) {
+                    case ADD ->
+                            ts.emit(OpCode.ADD, result, leftReg, rightReg);
+                    case SUB ->
+                            ts.emit(OpCode.SUB, result, leftReg, rightReg);
+                    case MUL ->
+                            ts.emit(OpCode.MUL, result, leftReg, rightReg);
+                    case DIV -> {
+                        ts.emit(OpCode.DIV, leftReg, rightReg);
+                        ts.emit(OpCode.MFLO, result);
+                    }
+                    case MOD -> {
+                        ts.emit(OpCode.DIV, leftReg, rightReg);
+                        ts.emit(OpCode.MFHI, result);
+                    }
+                    case LT ->
+                            ts.emit(OpCode.SLT, result, leftReg, rightReg);
+                    case GT ->
+                            ts.emit(OpCode.SLT, result, rightReg, leftReg);
+                    case LE -> {
+                        // left <= right  <=>  not (left > right)
+                        Register temp = Register.Virtual.create();
+                        ts.emit(OpCode.SLT, temp, rightReg, leftReg); // temp = 1 if left > right
+                        Register one = Register.Virtual.create();
+                        ts.emit(OpCode.ADDI, one, Register.Arch.zero, 1); // one = 1
+                        ts.emit(OpCode.SUB, result, one, temp); // result = 1 - temp
+                    }
+                    case GE -> {
+                        // left >= right  <=>  not (left < right)
+                        Register temp = Register.Virtual.create();
+                        ts.emit(OpCode.SLT, temp, leftReg, rightReg); // temp = 1 if left < right
+                        Register one = Register.Virtual.create();
+                        ts.emit(OpCode.ADDI, one, Register.Arch.zero, 1);
+                        ts.emit(OpCode.SUB, result, one, temp);
+                    }
+                    case EQ -> {
+                        // left == right  <=>  not ((left < right) or (right < left))
+                        Register lt = Register.Virtual.create();
+                        Register gt = Register.Virtual.create();
+                        ts.emit(OpCode.SLT, lt, leftReg, rightReg);
+                        ts.emit(OpCode.SLT, gt, rightReg, leftReg);
+                        Register diff = Register.Virtual.create();
+                        ts.emit(OpCode.OR, diff, lt, gt); // diff is 1 if values differ, 0 if equal
+                        Register one = Register.Virtual.create();
+                        ts.emit(OpCode.ADDI, one, Register.Arch.zero, 1);
+                        ts.emit(OpCode.SUB, result, one, diff); // result = 1 if equal, 0 if not
+                    }
+                    case NE -> {
+                        // left != right  <=>  (left < right) or (right < left)
+                        ts.emit(OpCode.SLT, result, leftReg, rightReg);
+                        Register temp = Register.Virtual.create();
+                        ts.emit(OpCode.SLT, temp, rightReg, leftReg);
+                        ts.emit(OpCode.OR, result, result, temp);
+                    }
+                    case OR ->
+                            ts.emit(OpCode.OR, result, leftReg, rightReg);
+                    case AND ->
+                            ts.emit(OpCode.AND, result, leftReg, rightReg);
+                    default ->
+                            throw new IllegalStateException("Unknown binary operator: " + binop.op);
+                }
+                return result;
+            }
+
             case Assign a -> {
                 Register r = visit(a.rhs);
                 switch (a.lhs) {
