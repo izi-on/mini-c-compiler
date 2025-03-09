@@ -14,6 +14,11 @@ public final class NaiveRegAlloc implements AssemblyPass {
 
     private NaiveRegAlloc() { }
 
+    public static void reset() {
+        INSTANCE = new NaiveRegAlloc();
+    }
+
+
     private static Map<Register.Virtual, Label>  collectVirtualRegisters(AssemblyProgram.TextSection section) {
         final Map<Register.Virtual, Label> vrMap = new HashMap<>();
 
@@ -148,7 +153,7 @@ public final class NaiveRegAlloc implements AssemblyPass {
     /**
      * The singleton instance of {@link NaiveRegAlloc}.
      */
-    public static final NaiveRegAlloc INSTANCE = new NaiveRegAlloc();
+    public static NaiveRegAlloc INSTANCE = new NaiveRegAlloc();
 
     @Override
     public AssemblyProgram apply(AssemblyProgram program) {

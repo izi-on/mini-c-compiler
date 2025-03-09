@@ -5,7 +5,7 @@ import java.util.List;
 
 public non-sealed class StructType implements Type{
     public String typeName;
-
+    public StructTypeDecl structTypeDecl; // points to the struct declaration
 
     public StructType() {}
     public StructType(String typeName){

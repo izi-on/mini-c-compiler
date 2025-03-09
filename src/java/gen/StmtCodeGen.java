@@ -2,13 +2,12 @@ package gen;
 
 import ast.*;
 import gen.asm.*;
-import gen.util.context.MemContext;
+import gen.util.mem.access.AccessType;
+import gen.util.mem.access.AccessTypeGetter;
+import gen.util.mem.context.MemContext;
 import gen.util.mem.FuncStackFrame;
-import gen.util.mem.StackFrame;
 import gen.util.mem.StackItem;
-
-import java.util.List;
-import java.util.Optional;
+import gen.util.value_holder.ValueHolder;
 
 public class StmtCodeGen extends CodeGen {
 
@@ -24,7 +23,7 @@ public class StmtCodeGen extends CodeGen {
         public void emit() {
             Label elseLabel = Label.create("else");
             Label endLabel = Label.create("end");
-            ts.emit(OpCode.BEQZ, (new ExprValCodeGen(StmtCodeGen.this.asmProg)).visit(i.condition), elseLabel);
+            ts.emit(OpCode.BEQZ, (new ExprValCodeGen(StmtCodeGen.this.asmProg)).visit(i.condition).getValRegister(), elseLabel);
             StmtCodeGen.this.visit(i.thenStmt);
             ts.emit(OpCode.J, endLabel);
             ts.emit(elseLabel);
@@ -75,9 +74,7 @@ public class StmtCodeGen extends CodeGen {
         AssemblyProgram.TextSection ts = asmProg.getCurrentTextSection();
         switch (s) {
             case Block b -> {
-                b.stmts.forEach((innerStmt) -> {
-                    firstVisitor.visit(innerStmt);
-                });
+                b.stmts.forEach(firstVisitor::visit);
             }
 
             case ExprStmt e -> {
@@ -93,9 +90,13 @@ public class StmtCodeGen extends CodeGen {
                 ts.emit(new Comment("Return statement start"));
                 ExprValCodeGen exprValCodeGen = new ExprValCodeGen(asmProg);
                 r.expr.ifPresent(expr -> {
-                    Register exprVal = exprValCodeGen.visit(expr);
-                    ts.emit(OpCode.SW, exprVal,
-                            Register.Arch.fp, currentFrame.offsetOf(StackItem.RETURN_VAL).orElseThrow());
+                    // set the target address
+                    Register targetAddr = Register.Virtual.create();
+                    ts.emit(OpCode.ADDI, targetAddr, Register.Arch.fp, currentFrame.offsetOf(StackItem.RETURN_VAL).orElseThrow());
+
+                    // get the value and set it
+                    ValueHolder value = exprValCodeGen.visit(expr);
+                    value.setTargetAddr(targetAddr).loadToTargetAddr();
                 });
                 ts.emit(OpCode.JAL, Label.get(FunCodeGen.functionEndLabel(currentFrame.func.name)));
                 ts.emit(new Comment("Return statement end"));
@@ -106,7 +107,7 @@ public class StmtCodeGen extends CodeGen {
                 Label endLabel = Label.create("while_end");
 
                 ts.emit(startLabel);
-                ts.emit(OpCode.BEQZ, (new ExprValCodeGen(asmProg)).visit(w.cond), endLabel);
+                ts.emit(OpCode.BEQZ, (new ExprValCodeGen(asmProg)).visit(w.cond).getValRegister(), endLabel);
                 withNewFirstVisitor(new StmtCodeGenWithWhileWrapper(asmProg, w, startLabel, endLabel, this), () -> {
                     firstVisitor.visit(w.body);
                 });

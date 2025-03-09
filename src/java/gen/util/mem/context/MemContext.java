@@ -1,25 +1,38 @@
-package gen.util.context;
+package gen.util.mem.context;
 
 import ast.Decl;
 import gen.MemAllocCodeGen;
+import gen.asm.AssemblyProgram;
 import gen.asm.Label;
 import gen.util.mem.FuncStackFrame;
 import gen.util.mem.StackFrame;
+import gen.util.value_holder.ValueHolder;
 
 public class MemContext {
 
+    public static void reset() {
+        INSTANCE = new MemContext();
+    }
+
     @FunctionalInterface
     public interface GlobalVarAction {
-        void apply(Label label);
+        ValueHolder apply(Label label);
     }
 
     @FunctionalInterface
     public interface LocalVarAction {
-        void apply(int offset);
+        ValueHolder apply(int offset);
+    }
+
+    public static MemAllocCodeGen newAllocator(AssemblyProgram asmProg) {
+        MemAllocCodeGen memAllocCodeGen = new MemAllocCodeGen(asmProg);
+        setAllocator(memAllocCodeGen);
+        return memAllocCodeGen;
     }
 
     public static class Var {
         Decl decl;
+        ValueHolder value;
 
         private Var(Decl decl) {
             this.decl = decl;
@@ -31,18 +44,23 @@ public class MemContext {
 
         public Var computeIfGlobal(GlobalVarAction r) {
             if (MemContext.getAllocator().getGlobalVarLabel(decl).isPresent()) {
-                r.apply(MemContext.getAllocator().getGlobalVarLabel(decl).get());
+                value = r.apply(MemContext.getAllocator().getGlobalVarLabel(decl).get());
             }
             return this;
         }
 
         public Var computeIfLocal(LocalVarAction r) {
             if (MemContext.getFuncStackFrame().offsetOf(decl).isPresent()) {
-                r.apply(MemContext.getStackFrame().offsetOf(decl).orElseThrow());
+                value = r.apply(MemContext.getStackFrame().offsetOf(decl).orElseThrow());
             }
             return this;
         }
+
+        public ValueHolder getValue() {
+            return value;
+        }
     }
+
     static MemContext INSTANCE;
     private MemAllocCodeGen allocator;
     private StackFrame stackFrame;

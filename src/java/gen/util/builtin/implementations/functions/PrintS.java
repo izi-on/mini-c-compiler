@@ -6,9 +6,9 @@ import gen.asm.OpCode;
 import gen.asm.Register;
 import gen.util.mem.context.MemContext;
 
-public class PrintI extends FunctionImplementation {
-    public PrintI() {
-        super("print_i");
+public class PrintS extends FunctionImplementation {
+    public PrintS() {
+        super("print_s");
     }
 
     @Override
@@ -17,10 +17,10 @@ public class PrintI extends FunctionImplementation {
                 MemContext.getStackFrame()
                         .offsetOf(funDef.params.get(0))
                         .orElseThrow(() -> new IllegalStateException("Parameter offset not found"));
-        // Load the integer parameter from memory into register $a0.
+        // Load the string pointer (char*) from the function's stack frame into register $a0.
         ts.emit(OpCode.LW, Register.Arch.a0, Register.Arch.fp, paramOffset);
-        // Set up the syscall code for print integer: load 1 into $v0.
-        ts.emit(OpCode.ADDI, Register.Arch.v0, Register.Arch.zero, 1);
+        // Set up the syscall code for printing a string (syscall 4) into register $v0.
+        ts.emit(OpCode.ADDI, Register.Arch.v0, Register.Arch.zero, 4);
         // Invoke the syscall.
         ts.emit(OpCode.SYSCALL);
     }

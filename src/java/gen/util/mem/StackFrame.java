@@ -1,6 +1,7 @@
 package gen.util.mem;
 
 import ast.Decl;
+import gen.util.mem.access.AccessType;
 
 import java.util.HashMap;
 import java.util.Map;

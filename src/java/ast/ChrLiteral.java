@@ -7,7 +7,7 @@ import java.util.List;
 
 public final class ChrLiteral extends Expr {
 
-    char value;
+    public char value;
 
     public ChrLiteral(String data) {
         // data can be an escape sequence like \n

@@ -1010,6 +1010,34 @@ public class SemanticAnalysisEndToEndTest {
                 }
                 foo(k);
                 }
-                """;
+        """;
+    }
+
+    @Test
+    public void testStrAssignment() throws IOException {
+        String input = """
+            int main() {
+                  char *str;
+                  str = (char*) "hello";
+                  return 0;
+            }
+            """;
+        int errors = runSemanticAnalysis(input);
+        assertEquals(0, errors, "Valid string assignment should be semantically correct");
+    }
+
+    @Test
+    public void testNestedStructs() throws IOException {
+        String input = """
+            struct Inner { int a; };
+            struct Outer { struct Inner in; int b; };
+            int main() {
+              struct Outer o;
+              o.in.a = 5;
+              return o.b;
+            }
+            """;
+        int errors = runSemanticAnalysis(input);
+        assertEquals(0, errors, "Valid nested structs should be semantically correct");
     }
 }

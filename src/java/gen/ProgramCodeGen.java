@@ -4,7 +4,7 @@ import ast.FunDef;
 import ast.Program;
 import gen.asm.*;
 import gen.util.builtin.implementations.functions.AggregateFunctionImplementations;
-import gen.util.context.MemContext;
+import gen.util.mem.context.MemContext;
 
 /**
  * This visitor should produce a program.
@@ -17,9 +17,8 @@ public class ProgramCodeGen extends CodeGen {
 
     void generate(Program p) {
         // allocate all variables
-        MemAllocCodeGen allocator = new MemAllocCodeGen(asmProg);
+        MemAllocCodeGen allocator = MemContext.newAllocator(asmProg);
         allocator.visit(p); // will also hold information for offsets of declarations
-        MemContext.setAllocator(allocator); // set the memory allocation context for visitors to use to determine offsets for variable access
 
         // create the entry point for the MIPS execution
         AssemblyProgram.TextSection ts = asmProg.emitNewTextSection();

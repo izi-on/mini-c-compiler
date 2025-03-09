@@ -6,6 +6,9 @@ import java.util.List;
 public non-sealed class PointerType implements Type{
     public Type pointerizedType;
 
+
+    public PointerType() {}
+
     public PointerType(Type pointerizedType){
         this.pointerizedType = pointerizedType;
     }

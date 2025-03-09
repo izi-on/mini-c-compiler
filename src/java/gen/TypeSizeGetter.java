@@ -2,20 +2,70 @@ package gen;
 
 import ast.ASTNode;
 import ast.*;
+import gen.util.mem.StackItem;
+import gen.util.mem.context.MemContext;
 
 public class TypeSizeGetter {
-    public static int getSize(ASTNode type) {
+    public static final int WORD_SIZE = 4;
+    public static final int BYTE_SIZE = 1;
+
+    // gets the size of the base type
+    @FunctionalInterface
+    interface BaseSizeDefiner {
+        int getSize(ASTNode type);
+    }
+
+
+    //get the size of a type WITHOUT alignment
+    public static int baseSize(ASTNode type) {
         return switch (type) {
-            case PointerType p -> 4;
-            case IntLiteral i -> 4;
-            case ChrLiteral c -> 4; // have a word for each character
-            case StrLiteral s -> 4 * s.value.length(); // have a word for each character and a word for the null terminator
-            case ArrayType a -> getSize(a.arrayedType) * a.size;
-            case BaseType b -> 4;
-//            case StructType s -> s.fields.stream().mapToInt(this::getSize).sum(); TODO handle structs somehow idek
+            case PointerType p -> WORD_SIZE;
+            case BaseType b ->
+                switch (b) {
+                    case INT -> WORD_SIZE;
+                    case CHAR -> BYTE_SIZE;
+                    case VOID -> 0;
+                    case UNKNOWN -> 0;
+                    case NONE -> 0;
+                };
             default -> {
-                throw new RuntimeException("Unknown type");
+                throw new RuntimeException("Unknown type: " + type);
             }
         };
     }
+
+    // default size getter
+    public static int getSize(ASTNode type) {
+        return getSize(type, TypeSizeGetter::baseSize);
+    }
+
+    public static int getSizeWordAlignment(ASTNode type) {
+        int size = getSize(type);
+        int alignment = (size % TypeSizeGetter.WORD_SIZE != 0) ? TypeSizeGetter.WORD_SIZE - (size % TypeSizeGetter.WORD_SIZE) : 0;
+        return size + alignment;
+    }
+
+    static int getSize(ASTNode type, BaseSizeDefiner baseSizeGetter) {
+        return switch (type) {
+            case ArrayType a -> getSize(a.arrayedType, baseSizeGetter) * a.size;
+            case StructType st -> getSize(st.structTypeDecl, baseSizeGetter);
+            case StructTypeDecl std -> MemContext.getAllocator().getFrameOf(std).orElseThrow().offsetOf(StackItem.POINTER_OFFSET).orElseThrow();
+            default -> baseSizeGetter.getSize(type);
+        };
+    }
+
+    public static int getAlignmentSize(ASTNode type) {
+        return getAlignmentSize(type, TypeSizeGetter::baseSize);
+    }
+
+    public static int getAlignmentSize(ASTNode type, BaseSizeDefiner g) {
+        int alignmentSize =  switch (type) {
+            case StructTypeDecl structTypeDecl -> structTypeDecl.varDecls.stream().mapToInt(vdcl -> getAlignmentSize(vdcl.type, g)).max().orElse(0);
+            case StructType st -> getAlignmentSize(st.structTypeDecl, g);
+            case ArrayType a -> getAlignmentSize(a.arrayedType, g);
+            default -> g.getSize(type);
+        };
+        return alignmentSize;
+    }
+
 }

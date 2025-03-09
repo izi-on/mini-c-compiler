@@ -9,9 +9,12 @@
 
 package gen.asm;
 
-import ast.BaseType;
-import ast.PointerType;
-import ast.VarDecl;
+import ast.*;
+import gen.TypeSizeGetter;
+import gen.util.mem.Aligner;
+import gen.util.mem.access.AccessTypeGetter;
+import gen.util.mem.access.Byte;
+import gen.util.mem.access.Word;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -60,11 +63,32 @@ public final class AssemblyProgram {
             Label label = Label.create(vd.name);
             emit(label);
             switch (vd.type) {
-                // int or char (we store chars in words)
-                case BaseType bt -> emit(new Directive("word 0"));
+                case BaseType bt -> {
+                    switch(AccessTypeGetter.fromAlignmentSize(bt)) {
+                        case Byte b -> emit(new Directive("byte 0"));
+                        case Word w -> emit(new Directive("word 0"));
+                        default -> throw new IllegalArgumentException("Unsupported global type: " + vd.type);
+                    }
+                }
                 case PointerType pt -> emit(new Directive("word 0"));
+                case ArrayType at -> {
+                    int spaceToAllocate = TypeSizeGetter.getSizeWordAlignment(at);
+                    emit(new Directive("space " + spaceToAllocate));
+                }
+                case StructType st -> {
+                    int spaceToAllocate = TypeSizeGetter.getSizeWordAlignment(st);
+                    emit(new Directive("space " + spaceToAllocate));
+                }
                 default -> throw new IllegalArgumentException("Unsupported type: " + vd.type);
             }
+            return label;
+        }
+
+        public Label emit(StrLiteral str) {
+            Label label = Label.create("str");
+            emit(label);
+            emit(new Directive("asciiz " + "\"" + str.value + "\""));
+            (new Aligner(new TypeSizeGetter())).align(str.value).ifPresent(align -> emit(new Directive("align " + align)));
             return label;
         }
 
@@ -175,6 +199,12 @@ public final class AssemblyProgram {
         public void emitSyscall(int code) {
             emit(OpCode.LI, Register.Arch.v0, code);
             emit(OpCode.SYSCALL);
+        }
+
+        public void emitMultiplicationByImm(Register dest, Register src, int imm) {
+            Register immRegister = Register.Virtual.create();
+            emit(OpCode.LI, immRegister, imm);
+            emit(OpCode.MUL, dest, src, immRegister);
         }
 
         @SuppressWarnings("unused")

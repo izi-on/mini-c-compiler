@@ -2,8 +2,12 @@ package gen;
 
 import ast.ASTPrinter;
 import ast.Program;
+import gen.asm.Label;
+import gen.asm.Register;
+import gen.util.mem.context.MemContext;
 import lexer.Scanner;
 import lexer.Tokeniser;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import parser.Parser;
 import regalloc.NaiveRegAlloc;
@@ -16,7 +20,6 @@ import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -49,6 +52,10 @@ public class CodeGenTest {
             }
             System.out.println("Semantic analysis: pass");
 
+//            // optional: print with ASTPrinter
+//            ASTPrinter printer = new ASTPrinter(new PrintWriter(System.out));
+//            printer.visit(prog);
+
             // Step 3: Code Generation
             // Here we use our default register allocator, NaiveRegAlloc.
             CodeGenerator codegen = new CodeGenerator(NaiveRegAlloc.INSTANCE);
@@ -56,7 +63,10 @@ public class CodeGenTest {
             codegen.emitProgram(prog, tempOutput.toFile());
             System.out.println("Code generated successfully in " + tempOutput.toAbsolutePath());
 
-            // Step 4: Run the MARS simulation on the generated code and capture the output
+            try (PrintWriter writer = new PrintWriter(new File("output.asm"))) {
+                writer.write(new String(Files.readAllBytes(tempOutput), StandardCharsets.UTF_8));
+            }            // Step 4: Run the MARS simulation on the generated code and capture the output
+
             ProcessBuilder pb = new ProcessBuilder("java", "-jar", "Mars4_5.jar", "sm", "nc", "me", tempOutput.toAbsolutePath().toString());
             pb.redirectErrorStream(true);
             Process p = pb.start();
@@ -74,6 +84,14 @@ public class CodeGenTest {
             System.err.println("Error running MARS simulation");
             throw e;
         }
+    }
+
+    @BeforeEach
+    public void resetState() {
+        MemContext.reset();
+        NaiveRegAlloc.reset();
+        Register.Virtual.reset();
+        Label.reset();
     }
 
     @Test
@@ -576,5 +594,381 @@ public class CodeGenTest {
         String expectedOutput = "25"; // k value concatenated with i value
         String output = runCode(code);
         assertEquals(expectedOutput, output, "nested while loop should print 25");
+    }
+
+    @Test
+    public void testPrintC() throws IOException, InterruptedException {
+        String code = """
+            int main() {
+                print_c('a');
+                return 0;
+            }
+        """;
+        String expectedOutput = "a";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "print_c('a') should print a");
+    }
+
+    @Test
+    public void testArray() throws IOException, InterruptedException {
+        String code = """
+            int main() {
+                char arr[5];
+                arr[0] = 'a';
+                arr[1] = 'b';
+                arr[2] = 'c';
+                arr[3] = 'd';
+                arr[4] = 'e';
+                print_c(arr[0]);
+                print_c(arr[1]);
+                print_c(arr[2]);
+                print_c(arr[3]);
+                print_c(arr[4]);
+                return 0;
+            }
+        """;
+        String expectedOutput = "abcde";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Array access should print abcde");
+    }
+
+    @Test
+    public void testGlobalArray() throws IOException, InterruptedException {
+        String code = """
+            char arr[5];
+            int main() {
+                arr[0] = 'a';
+                arr[1] = 'b';
+                arr[2] = 'c';
+                arr[3] = 'd';
+                arr[4] = 'e';
+                print_c(arr[0]);
+                print_c(arr[1]);
+                print_c(arr[2]);
+                print_c(arr[3]);
+                print_c(arr[4]);
+                return 0;
+            }
+        """;
+        String expectedOutput = "abcde";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Global array access should print abcde");
+    }
+
+
+
+    @Test
+    public void testPointer() throws IOException, InterruptedException {
+        String code = """
+            int main() {
+                int x;
+                int y;
+                int* p;
+                p = &y;
+                x = 42;
+                *p = x;
+                print_i(y);
+                return 0;
+            }
+        """;
+        String expectedOutput = "42";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Pointer dereference should print 42");
+    }
+
+    @Test
+    public void testPointerInFunction () throws IOException, InterruptedException {
+        String code = """
+            int foo(int* p){
+                *p = 42;
+            }
+            
+            int main() {
+                int* p;
+                int x;
+                x = 5;
+                p = &x;
+                foo(p);
+                print_i(x);
+                return 0;
+            }
+        """;
+        String expectedOutput = "42";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Pointer dereference in function should print 42");
+    }
+
+    @Test
+    public void testShortCircuitAnd() throws IOException, InterruptedException {
+        String code = """
+            int x;
+            int foo() {
+                x = 10;
+                return 0;
+            }
+            int bar() {
+                x = 20;
+                return 0;
+            }
+            int main() {
+                x = 0;
+                if (foo() && bar()) {
+                } else {
+                    print_i(x);
+                }
+                return 0;
+            }
+        """;
+        String expectedOutput = "10";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Short-circuiting && should print 10");
+    }
+
+    @Test
+    public void testShortCircuitOr() throws IOException, InterruptedException {
+        String code = """
+            int x;
+            int foo() {
+                x = 10;
+                return 1;
+            }
+            int bar() {
+                x = 20;
+                return 0;
+            }
+            int main() {
+                x = 0;
+                if (foo() || bar()) {
+                    print_i(x);
+                }
+                return 0;
+            }
+        """;
+        String expectedOutput = "10";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Short-circuiting || should print 10");
+    }
+
+    @Test
+    public void testString() throws IOException, InterruptedException {
+        String code = """
+            int main() {
+                print_s((char*)"Hello, world!");
+                return 0;
+            }
+        """;
+        String expectedOutput = "Hello, world!";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "print_s(\"Hello, world!\") should print Hello, world!");
+    }
+
+    @Test
+    public void testCharReturn() throws IOException, InterruptedException {
+        String code = """
+            char foo() {
+                return 'a';
+            }
+            int main() {
+                print_c(foo());
+                return 0;
+            }
+        """;
+        String expectedOutput = "a";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "char foo() { return 'a'; } print_c(foo()); should print a");
+    }
+
+    @Test
+    public void testMultiDimArray() throws IOException, InterruptedException {
+        String code = """
+            int main() {
+                int arr[2][3];
+                arr[0][0] = 1;
+                arr[0][1] = 2;
+                arr[0][2] = 3;
+                arr[1][0] = 4;
+                arr[1][1] = 5;
+                arr[1][2] = 6;
+                print_i(arr[0][0]);
+                print_i(arr[0][1]);
+                print_i(arr[0][2]);
+                print_i(arr[1][0]);
+                print_i(arr[1][1]);
+                print_i(arr[1][2]);
+                return 0;
+            }
+        """;
+        String expectedOutput = "123456";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Multi-dimensional array access should print 123456");
+    }
+
+    @Test
+    public void testSizeOf() throws IOException, InterruptedException {
+        String code = """
+                struct foo {
+                    int x;
+                    char y;
+                };
+                struct S1 {
+                   char c1;
+                   char c2;
+                   int a;
+                   char c3;
+                 };
+                 struct S2 {
+                   char c1;
+                   char c2;
+                   char c3;
+                 };
+                 struct S3 {
+                   char c1;
+                   struct S1 s;
+                   char c2;\s
+                 };
+                 struct S4 {
+                   char c1;
+                   struct S2 s;
+                   char c2;\s
+                 };
+                                                                 
+                    int main() {
+                        print_i(sizeof(int));
+                        print_c(',');
+                        print_i(sizeof(char));
+                        print_c(',');
+                        print_i(sizeof(int*));
+                        print_c(',');
+                        print_i(sizeof(char*));
+                        print_c(',');
+                        print_i(sizeof(struct foo));
+                        print_c(',');
+                        print_i(sizeof(struct S1));
+                        print_c(',');
+                        print_i(sizeof(struct S2));
+                        print_c(',');
+                        print_i(sizeof(struct S3));
+                        print_c(',');
+                        print_i(sizeof(struct S4));
+                        return 0;
+                    }
+                """;
+        String expectedOutput = "4,1,4,4,8,12,3,20,5";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "sizeof(int), sizeof(char), sizeof(int*), sizeof(char*) should print 4,1,4,4,8,12,3,20,5");
+    }
+
+    @Test
+    public void testSizeOfStruct() throws IOException, InterruptedException {
+        String code = """
+                   struct S1 {
+                     char c1;
+                     char c2;
+                     int a;
+                     char c3;
+                   };
+                int main() {
+                    print_i(sizeof(struct S1));
+                    return 0;
+                }
+                """;
+        String expectedOutput = "12";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Should be size 12");
+    }
+
+    @Test
+    public void testStructAssignment() throws IOException, InterruptedException {
+        String code = """
+            struct Point {
+                int x;
+                int y;
+            };
+            
+            int main() {
+                struct Point p1;
+                struct Point p2;
+                
+                p1.x = 10;
+                p1.y = 20;
+                
+                p2 = p1;  // Should copy the values
+                p1.x = 30; // Modifying p1 should not affect p2
+                
+                print_i(p2.x); // Should be 10
+                print_i(p2.y); // Should be 20
+                return 0;
+            }
+        """;
+        String expectedOutput = "1020";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Struct assignment should copy values");
+    }
+
+    @Test
+    public void testNestedStructAssignment() throws IOException, InterruptedException {
+        String code = """
+            struct Inner {
+                int val;
+                char c;
+            };
+            
+            struct Outer {
+                struct Inner inner;
+                int x;
+            };
+            
+            int main() {
+                struct Outer o1;
+                struct Outer o2;
+                
+                o1.inner.val = 42;
+                o1.inner.c = 'A';
+                o1.x = 10;
+                
+                o2 = o1;  // Should perform deep copy
+                o1.inner.val = 99; // Modifying o1 should not affect o2
+                o1.inner.c = 'Z';
+                
+                print_i(o2.inner.val); // Should be 42
+                print_c(o2.inner.c);   // Should be 'A'
+                print_i(o2.x);         // Should be 10
+                return 0;
+            }
+        """;
+        String expectedOutput = "42A10";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Nested struct assignment should copy all values");
+    }
+
+    @Test
+    public void testStructPassByValue() throws IOException, InterruptedException {
+        String code = """
+            struct Data {
+                int a;
+                int b;
+            };
+            
+            int modify(struct Data d) {
+                d.a = 99;  // This should modify the local copy only
+                d.b = 88;  // Not the original
+                return 0;
+            }
+            
+            int main() {
+                struct Data data;
+                data.a = 10;
+                data.b = 20;
+                
+                modify(data);  // Should pass by value
+                
+                print_i(data.a); // Should still be 10
+                print_i(data.b); // Should still be 20
+                return 0;
+            }
+        """;
+        String expectedOutput = "1020";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Structs should be passed by value to functions");
     }
 }

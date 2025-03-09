@@ -6,6 +6,7 @@ import java.util.List;
 public non-sealed class IntLiteral extends Expr {
     public int value;
 
+    public IntLiteral() {} // for type purposes
     public IntLiteral(int value) {
         this.value = value;
     }

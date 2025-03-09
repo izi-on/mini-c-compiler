@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public final class SizeOfExpr extends Expr {
-    Type sizeOfType;
+    public Type sizeOfType;
 
     public SizeOfExpr(Type type) {
         this.sizeOfType = type;

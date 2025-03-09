@@ -143,9 +143,9 @@ public class TypeAnalyzer extends BaseSemanticAnalyzer {
 			}
 
 			// --- Literals ---
-			case IntLiteral i -> {yield BaseType.INT;}
-			case StrLiteral s -> {yield new ArrayType(BaseType.CHAR, s.value.length() + 1);}
-			case ChrLiteral c -> {yield BaseType.CHAR;}
+			case IntLiteral i -> {i.type = BaseType.INT ;yield BaseType.INT;}
+			case StrLiteral s -> {Type type = new ArrayType(BaseType.CHAR, s.value.length() + 1); s.type = type ; yield type;}
+			case ChrLiteral c -> {c.type = BaseType.CHAR; yield BaseType.CHAR;}
 
 			// --- Struct declaration ---
 			case StructTypeDecl std -> {
@@ -168,7 +168,7 @@ public class TypeAnalyzer extends BaseSemanticAnalyzer {
 					structScope.set(getScope()); // capture the scope for which the struct was declared.
 				});
 				StructType structType = new StructType(std.name);
-				setStruct(new StructTypeSymbol(std.name, structType, structScope.get()));
+				setStruct(new StructTypeSymbol(std, structType, structScope.get()));
 				yield structType;
 			}
 
@@ -277,6 +277,7 @@ public class TypeAnalyzer extends BaseSemanticAnalyzer {
 
 			// --- sizeof expression ---
 			case SizeOfExpr se -> {
+				visit(se.sizeOfType);
 				se.type = BaseType.INT;
 				yield BaseType.INT;
 			}
@@ -286,7 +287,6 @@ public class TypeAnalyzer extends BaseSemanticAnalyzer {
 				Type exprType = visit(va.expr);
 				if (!(exprType instanceof PointerType)) {
 					error(new UnexpectedTypeErr(exprType));
-					va.type = BaseType.UNKNOWN;
 					yield BaseType.UNKNOWN;
 				} else {
 					Type res = ((PointerType) exprType).pointerizedType;
@@ -400,10 +400,11 @@ public class TypeAnalyzer extends BaseSemanticAnalyzer {
 
 			// for struct types, ensure that the struct is declared previously
 			case StructType st -> {
-				Symbol s = getStruct(st.typeName);
+				StructTypeSymbol s = getStruct(st.typeName);
 				if (!isValidTypeSymbol(s, st.typeName)) {
 					yield BaseType.UNKNOWN;
 				}
+				st.structTypeDecl = s.stdcl;
 				yield st;
 			}
 			case Type t -> {yield t;}

@@ -5,7 +5,13 @@ import gen.asm.AssemblyProgram;
 import gen.asm.Label;
 import gen.asm.OpCode;
 import gen.asm.Register;
-import gen.util.context.MemContext;
+import gen.util.mem.access.AccessTypeGetter;
+import gen.util.mem.context.MemContext;
+import gen.util.struct.StructUtils;
+import gen.util.value_holder.ValueHolder;
+
+import java.util.GregorianCalendar;
+import java.util.Optional;
 
 
 /**
@@ -17,13 +23,76 @@ public class ExprValCodeGen extends CodeGen {
         this.asmProg = asmProg;
     }
 
-    public Register visit(Expr e) {
+    public ValueHolder visit(Expr e) {
         AssemblyProgram.TextSection ts = asmProg.getCurrentTextSection();
         switch (e) {
             case BinOp binop -> {
-                Register leftReg = visit(binop.lhs);
-                Register rightReg = visit(binop.rhs);
                 Register result = Register.Virtual.create();
+
+                switch (binop.op) {
+                    case AND -> {
+                        Label falseEval = Label.create("false_and");
+                        Label endLbl = Label.create("end_and");
+
+                        // eval left
+                        Register leftReg = visit(binop.lhs).getValRegister();
+                        ts.emit(OpCode.BEQ, leftReg, Register.Arch.zero, falseEval);
+
+                        // eval right
+                        Register rightReg = visit(binop.rhs).getValRegister();
+                        ts.emit(OpCode.BEQ, rightReg, Register.Arch.zero, falseEval);
+
+                        // if here, then true
+                        ts.emit(OpCode.ADDI, result, Register.Arch.zero, 1);
+                        ts.emit(OpCode.J, endLbl);
+
+                        // false branch
+                        ts.emit(falseEval);
+                        ts.emit(OpCode.ADDI, result, Register.Arch.zero, 0);
+
+                        // end
+                        ts.emit(endLbl);
+
+                        return new ValueHolder.OnRegister(asmProg, binop, result);
+                    }
+                    case OR -> {
+                        Label falseEval = Label.create("false_or");
+                        Label trueEval = Label.create("true_or");
+                        Label endLbl = Label.create("end_or");
+
+                        // register for the value 1
+                        Register oneReg = Register.Virtual.create();
+                        ts.emit(OpCode.ADDI, oneReg, Register.Arch.zero, 1);
+
+                        // eval left
+                        Register leftReg = visit(binop.lhs).getValRegister();
+                        ts.emit(OpCode.BEQ, leftReg, oneReg, trueEval);
+
+                        // eval right
+                        Register rightReg = visit(binop.rhs).getValRegister();
+                        ts.emit(OpCode.BEQ, rightReg, oneReg, trueEval);
+
+                        // if no branching here, false
+                        ts.emit(OpCode.J, falseEval);
+
+                        // true branch
+                        ts.emit(trueEval);
+                        ts.emit(OpCode.ADDI, result, Register.Arch.zero, 1);
+                        ts.emit(OpCode.J, endLbl);
+
+                        // false branch
+                        ts.emit(falseEval);
+                        ts.emit(OpCode.ADDI, result, Register.Arch.zero, 0);
+
+                        // end
+                        ts.emit(endLbl);
+
+                        return new ValueHolder.OnRegister(asmProg, e, result);
+                    }
+                }
+
+                Register leftReg = visit(binop.lhs).getValRegister();
+                Register rightReg = visit(binop.rhs).getValRegister();
 
                 switch (binop.op) {
                     case ADD ->
@@ -79,81 +148,103 @@ public class ExprValCodeGen extends CodeGen {
                         ts.emit(OpCode.SLT, temp, rightReg, leftReg);
                         ts.emit(OpCode.OR, result, result, temp);
                     }
-                    case OR ->
-                            ts.emit(OpCode.OR, result, leftReg, rightReg);
-                    case AND ->
-                            ts.emit(OpCode.AND, result, leftReg, rightReg);
                     default ->
                             throw new IllegalStateException("Unknown binary operator: " + binop.op);
                 }
-                return result;
+                return new ValueHolder.OnRegister(asmProg, binop, result);
+            }
+
+            case ArrayAccessExpr arrAccess -> {
+                Register addrOfArr = (new ExprAddrCodeGen(asmProg)).visit(arrAccess);
+                return new ValueHolder.OnMemoryAddr(asmProg, arrAccess, addrOfArr);
             }
 
             case Assign a -> {
-                Register r = visit(a.rhs);
-                switch (a.lhs) {
-                    case VarExpr v -> {
-                        if (v.vd == null) {
-                            throw new IllegalStateException("VarExpr " + v.name + " is referencing a null VarDecl" );
-                        }
-                        MemContext.Var.of(v.vd)
-                            .computeIfGlobal(labelOfVar -> {
-                                ts.emit(OpCode.LA, Register.Arch.t0, labelOfVar);
-                                ts.emit(OpCode.SW, r, Register.Arch.t0, 0);
-                            })
-                            .computeIfLocal(offsetOfVar -> {
-                                ts.emit(OpCode.SW, r, Register.Arch.fp, offsetOfVar);
-                            });
-
-                    }
-                    default -> throw new IllegalStateException("Unexpected value: " + a.lhs);
-                }
+                ValueHolder r = visit(a.rhs);
+                Register addrL = (new ExprAddrCodeGen(asmProg)).visit(a.lhs);
+                r.setTargetAddr(addrL).loadToTargetAddr();
                 return r;
             }
 
             case IntLiteral i -> {
                 Register r = Register.Virtual.create();
                 ts.emit(OpCode.ADDI, r, Register.Arch.zero, i.value);
-                return r;
+                return new ValueHolder.OnRegister(asmProg, i, r);
+            }
+
+            case ChrLiteral c -> {
+                Register r = Register.Virtual.create();
+                ts.emit(OpCode.ADDI, r, Register.Arch.zero, (int) c.value);
+                return new ValueHolder.OnRegister(asmProg, c, r);
+            }
+
+            case StrLiteral s -> {
+                return new ValueHolder.OnRegister(asmProg, s, new ExprAddrCodeGen(asmProg).visit(s));
+            }
+
+            case TypecastExpr te -> {
+                return new ValueHolder.OnRegister(asmProg, te, visit(te.expr).getValRegister());
+            }
+
+            case FieldAccessExpr fa -> {
+                Register addrOfStruct = (new ExprAddrCodeGen(asmProg)).visit(fa);
+                return new ValueHolder.OnMemoryAddr(asmProg, fa, addrOfStruct);
+            }
+
+            case SizeOfExpr sof -> {
+                Register r = Register.Virtual.create();
+                ts.emit(OpCode.ADDI, r, Register.Arch.zero, TypeSizeGetter.getSize(sof.sizeOfType));
+                return new ValueHolder.OnRegister(asmProg, sof, r);
             }
 
             case VarExpr ve -> {
-                if (ve.vd == null) {
-                    throw new IllegalStateException("VarExpr " + ve.name + " is referencing a null VarDecl" );
-                }
-                Register r = Register.Virtual.create();
-                MemContext.Var.of(ve.vd)
-                    .computeIfGlobal(labelOfVar -> {
-                        ts.emit(OpCode.LA, Register.Arch.t0, labelOfVar);
-                        ts.emit(OpCode.LW, r, Register.Arch.t0, 0);
-                    })
-                    .computeIfLocal(offsetOfVar -> {
-                        ts.emit(OpCode.LW, r, Register.Arch.fp, offsetOfVar);
-                    });
-                return r;
+                return MemContext.Var.of(ve.vd)
+                        .computeIfGlobal(labelOfVar -> {
+                            Register addr = Register.Virtual.create();
+                            ts.emit(OpCode.LA, addr, labelOfVar);
+                            return new ValueHolder.OnMemoryAddr(asmProg, ve, addr);
+                        })
+                        .computeIfLocal(offsetOfVar -> {
+                            Register addr = Register.Virtual.create();
+                            ts.emit(OpCode.ADDI, addr, Register.Arch.fp, offsetOfVar);
+                            return new ValueHolder.OnMemoryAddr(asmProg, ve, addr);
+                        })
+                        .getValue();
             }
 
             case FunCallExpr f -> {
                 // put args on stack
                 f.args.forEach(arg -> {
-                    ts.emit(OpCode.ADDI, Register.Arch.sp, Register.Arch.sp, -TypeSizeGetter.getSize( (arg.type != null) ? arg.type : BaseType.VOID));
-                    Register argReg = visit(arg);
-                    ts.emit(OpCode.SW, argReg, Register.Arch.sp, 0);
+                    // move stack
+                    ts.emit(OpCode.ADDI, Register.Arch.sp, Register.Arch.sp, -TypeSizeGetter.getSizeWordAlignment(arg.type));
+
+                    // create register for the destination addr
+                    Register destinationAddr = Register.Virtual.create();
+                    ts.emit(OpCode.ADDI, destinationAddr, Register.Arch.sp, 0);
+
+                    // get the value and put it on the stack
+                    ValueHolder value = visit(arg);
+                    value.setTargetAddr(destinationAddr).loadToTargetAddr();
                 });
 
                 // space for return value
-                ts.emit(OpCode.ADDI, Register.Arch.sp, Register.Arch.sp, -TypeSizeGetter.getSize(f.type));
+                ts.emit(OpCode.ADDI, Register.Arch.sp, Register.Arch.sp, -TypeSizeGetter.getSizeWordAlignment(f.type));
+
+                // call function
                 ts.emit(OpCode.JAL, Label.get(f.name));
 
                 // store return value in a register
-                Register r = Register.Virtual.create();
-                ts.emit(OpCode.LW, r, Register.Arch.sp, 0);
+                Register returnValAddr = Register.Virtual.create();
+                ts.emit(OpCode.ADDI, returnValAddr, Register.Arch.sp, 0);
+                return new ValueHolder.OnMemoryAddr(asmProg, f, returnValAddr);
+            }
 
-                // clean up stack
-                int cleanupSpDecrement = TypeSizeGetter.getSize(f.type) + f.args.stream().mapToInt(arg -> TypeSizeGetter.getSize( (arg.type != null) ? arg.type : BaseType.VOID)).sum();
-                ts.emit(OpCode.ADDI, Register.Arch.sp, Register.Arch.sp, cleanupSpDecrement);
+            case AddressOfExpr a -> {
+                return new ValueHolder.OnRegister(asmProg, a, new ExprAddrCodeGen(asmProg).visit(a.expr));
+            }
 
-                return r;
+            case ValueAtExpr v -> {
+                return new ValueHolder.OnMemoryAddr(asmProg, v, (new ExprAddrCodeGen(asmProg)).visit(v.expr));
             }
 
             default -> throw new IllegalStateException("Unexpected value: " + e);
