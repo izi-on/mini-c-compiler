@@ -22,7 +22,7 @@ public class ProgramCodeGen extends CodeGen {
 
         // create the entry point for the MIPS execution
         AssemblyProgram.TextSection ts = asmProg.emitNewTextSection();
-        ts.emit(OpCode.ADDI, Register.Arch.sp, Register.Arch.sp, -4); // make space for return value
+        ts.emit(OpCode.ADDIU, Register.Arch.sp, Register.Arch.sp, -4); // make space for return value
         ts.emit(OpCode.JAL, Label.get("main"));
         ts.emitSyscall(10);
 

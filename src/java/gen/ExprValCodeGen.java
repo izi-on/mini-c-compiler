@@ -206,7 +206,7 @@ public class ExprValCodeGen extends CodeGen {
                         })
                         .computeIfLocal(offsetOfVar -> {
                             Register addr = Register.Virtual.create();
-                            ts.emit(OpCode.ADDI, addr, Register.Arch.fp, offsetOfVar);
+                            ts.emit(OpCode.ADDIU, addr, Register.Arch.fp, offsetOfVar);
                             return new ValueHolder.OnMemoryAddr(asmProg, ve, addr);
                         })
                         .getValue();
@@ -216,7 +216,7 @@ public class ExprValCodeGen extends CodeGen {
                 // put args on stack
                 f.args.forEach(arg -> {
                     // move stack
-                    ts.emit(OpCode.ADDI, Register.Arch.sp, Register.Arch.sp, -TypeSizeGetter.getSizeWordAlignment(arg.type));
+                    ts.emit(OpCode.ADDIU, Register.Arch.sp, Register.Arch.sp, -TypeSizeGetter.getSizeWordAlignment(arg.type));
 
                     // create register for the destination addr
                     Register destinationAddr = Register.Virtual.create();
@@ -228,7 +228,7 @@ public class ExprValCodeGen extends CodeGen {
                 });
 
                 // space for return value
-                ts.emit(OpCode.ADDI, Register.Arch.sp, Register.Arch.sp, -TypeSizeGetter.getSizeWordAlignment(f.type));
+                ts.emit(OpCode.ADDIU, Register.Arch.sp, Register.Arch.sp, -TypeSizeGetter.getSizeWordAlignment(f.type));
 
                 // call function
                 ts.emit(OpCode.JAL, Label.get(f.name));
@@ -244,7 +244,7 @@ public class ExprValCodeGen extends CodeGen {
             }
 
             case ValueAtExpr v -> {
-                return new ValueHolder.OnMemoryAddr(asmProg, v, (new ExprAddrCodeGen(asmProg)).visit(v.expr));
+                return new ValueHolder.OnMemoryAddr(asmProg, v, (new ExprAddrCodeGen(asmProg)).visit(v));
             }
 
             default -> throw new IllegalStateException("Unexpected value: " + e);

@@ -3,10 +3,7 @@ package gen;
 import ast.FunDef;
 import ast.PointerType;
 import gen.asm.*;
-import gen.util.builtin.implementations.functions.AggregateFunctionImplementations;
-import gen.util.builtin.implementations.functions.PrintC;
-import gen.util.builtin.implementations.functions.PrintI;
-import gen.util.builtin.implementations.functions.PrintS;
+import gen.util.builtin.implementations.functions.*;
 import gen.util.mem.context.MemContext;
 import gen.util.mem.StackFrame;
 import gen.util.mem.StackItem;
@@ -33,7 +30,10 @@ public class FunCodeGen extends CodeGen {
         builtInFunctions = new AggregateFunctionImplementations(List.of(
                 new PrintI(),
                 new PrintC(),
-                new PrintS()
+                new PrintS(),
+                new ReadI(),
+                new ReadC(),
+                new Mcmalloc()
         ));
     }
 
@@ -67,7 +67,7 @@ public class FunCodeGen extends CodeGen {
             // Increment t0 by word size
             ts.emit(OpCode.ADDI, Register.Arch.t0, Register.Arch.t0, TypeSizeGetter.BYTE_SIZE);
             // Continue loop if t0 < frameSize
-            ts.emit(OpCode.SLTI, Register.Arch.t2, Register.Arch.t0, frameSize);
+            ts.emit(OpCode.SLTI, Register.Arch.t2, Register.Arch.t0, frameSize + TypeSizeGetter.BYTE_SIZE);
             ts.emit(OpCode.BNE, Register.Arch.t2, Register.Arch.zero, loopLabel);
             ts.emit(endLabel);
         }
@@ -89,14 +89,14 @@ public class FunCodeGen extends CodeGen {
 
         @Override
         public void applyPrologue() {
-            ts.emit(OpCode.ADDI, Register.Arch.sp, Register.Arch.sp, -offset);
+            ts.emit(OpCode.ADDIU, Register.Arch.sp, Register.Arch.sp, offset);
             ts.emit(OpCode.SW, Register.Arch.fp, Register.Arch.sp, 0);
-            ts.emit(OpCode.ADDI, Register.Arch.fp, Register.Arch.sp, offset);
+            ts.emit(OpCode.ADDIU, Register.Arch.fp, Register.Arch.sp, -offset);
         }
 
         @Override
         public void applyEpilogue() {
-            ts.emit(OpCode.LW, Register.Arch.fp, Register.Arch.fp, -offset);
+            ts.emit(OpCode.LW, Register.Arch.fp, Register.Arch.fp, offset);
         }
     }
 
@@ -131,12 +131,12 @@ public class FunCodeGen extends CodeGen {
 
         @Override
         public void applyPrologue() {
-            ts.emit(OpCode.ADDI, Register.Arch.sp, Register.Arch.fp, offset);
+            ts.emit(OpCode.ADDIU, Register.Arch.sp, Register.Arch.fp, offset);
         }
 
         @Override
         public void applyEpilogue() {
-            ts.emit(OpCode.ADDI, Register.Arch.sp, Register.Arch.fp, 0);
+            ts.emit(OpCode.ADDIU, Register.Arch.sp, Register.Arch.fp, 0);
         }
     }
 
@@ -210,13 +210,15 @@ public class FunCodeGen extends CodeGen {
         // 1) create function actions for prologue and epilogue
         FunctionAction cleanStack = new CleanLocalStack(
                 ts,
-                funcFrame.get().offsetOf(StackItem.STACK_POINTER_OFFSET).orElseThrow(),
+                Math.abs(funcFrame.get().offsetOf(StackItem.STACK_POINTER_OFFSET).orElseThrow()),
                 Register.Arch.sp
             );
         FunctionAction saveAndSetFramePointer = new FramePointer(ts, funcFrame.get().offsetOf(StackItem.FRAME_POINTER).orElseThrow());
         FunctionAction saveReturnAddr = new ReturnAddr(ts, funcFrame.get().offsetOf(StackItem.RETURN_ADDR).orElseThrow());
         FunctionAction reserveStackFrameSpace = new StackMove(ts, funcFrame.get().offsetOf(StackItem.STACK_POINTER_OFFSET).orElseThrow());
         FunctionAction actions = new AggregateFunctionAction(cleanStack, saveAndSetFramePointer, saveReturnAddr, reserveStackFrameSpace);
+
+        System.out.println("For func: " + fd.name + " the frame pointer size is: " + funcFrame.get().offsetOf(StackItem.STACK_POINTER_OFFSET).orElseThrow());
 
         label.applyPrologue();
         actions.applyPrologue();

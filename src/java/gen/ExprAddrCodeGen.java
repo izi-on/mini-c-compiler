@@ -42,7 +42,7 @@ public class ExprAddrCodeGen extends CodeGen {
                         })
                         .computeIfLocal(offsetOfVar -> {
                             Register r = Register.Virtual.create();
-                            ts.emit(OpCode.ADDI, r, Register.Arch.fp, offsetOfVar);
+                            ts.emit(OpCode.ADDIU, r, Register.Arch.fp, offsetOfVar);
                             return new ValueHolder.OnRegister(asmProg, new IntLiteral(), r);
                         })
                         .getValue()
@@ -83,7 +83,7 @@ public class ExprAddrCodeGen extends CodeGen {
 
                 // calculate address
                 Register r = Register.Virtual.create();
-                ts.emit(OpCode.ADDI, r, addr, fieldOffset);
+                ts.emit(OpCode.ADDIU, r, addr, fieldOffset);
                 return r;
             }
 

@@ -92,7 +92,7 @@ public class StmtCodeGen extends CodeGen {
                 r.expr.ifPresent(expr -> {
                     // set the target address
                     Register targetAddr = Register.Virtual.create();
-                    ts.emit(OpCode.ADDI, targetAddr, Register.Arch.fp, currentFrame.offsetOf(StackItem.RETURN_VAL).orElseThrow());
+                    ts.emit(OpCode.ADDIU, targetAddr, Register.Arch.fp, currentFrame.offsetOf(StackItem.RETURN_VAL).orElseThrow());
 
                     // get the value and set it
                     ValueHolder value = exprValCodeGen.visit(expr);

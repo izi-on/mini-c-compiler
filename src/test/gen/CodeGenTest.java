@@ -7,6 +7,7 @@ import gen.asm.Register;
 import gen.util.mem.context.MemContext;
 import lexer.Scanner;
 import lexer.Tokeniser;
+import org.junit.Ignore;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import parser.Parser;
@@ -133,6 +134,27 @@ public class CodeGenTest {
         String expectedOutput = "42";
         String output = runCode(code);
         assertEquals(expectedOutput, output, "foo() should return 42");
+    }
+
+    @Test
+    public void testPrintThenFunctionCall() throws IOException, InterruptedException {
+        String code = """
+                int foo() {
+                    return 42;
+                }
+                
+                int main() {
+                    int x;
+                    print_i(5);
+                    x = 10;
+                    print_i(foo());
+                    print_i(x);
+                    return 0;
+                }
+        """;
+        String expectedOutput = "54210";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Should print 54210");
     }
 
     @Test
@@ -971,4 +993,58 @@ public class CodeGenTest {
         String output = runCode(code);
         assertEquals(expectedOutput, output, "Structs should be passed by value to functions");
     }
+//
+//    @Ignore("Requires stdin")
+//    @Test
+//    public void testReadI() throws IOException, InterruptedException {
+//        String code = """
+//            int main() {
+//                int x;
+//                int y;
+//                x = read_i();
+//                y = read_i();
+//                print_i(x+y);
+//                return 0;
+//            }
+//        """;
+//        String expectedOutput = "";
+//        String output = runCode(code);
+//        assertEquals(expectedOutput, output, "Empty main should produce no output");
+//    }
+//
+//    @Ignore("Requires stdin")
+//    @Test
+//    public void testReadC() throws IOException, InterruptedException {
+//        String code = """
+//            int main() {
+//                char x;
+//                char y;
+//                x = read_c();
+//                y = read_c();
+//                print_c(x);
+//                print_c(y);
+//                return 0;
+//            }
+//        """;
+//        String expectedOutput = "";
+//        String output = runCode(code);
+//        assertEquals(expectedOutput, output, "Empty main should produce no output");
+//    }
+//
+    @Test
+    public void testMcmalloc() throws IOException, InterruptedException {
+        String code = """
+        int main() {
+            int *p;
+            p = (int*) mcmalloc(sizeof(int));
+            *p = 1234;
+            print_i(*p);
+            return 0;
+        }
+    """;
+        String expectedOutput = "1234";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "mcmalloc should correctly allocate memory and support read/write operations");
+    }
+
 }

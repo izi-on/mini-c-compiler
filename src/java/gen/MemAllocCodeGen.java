@@ -109,7 +109,7 @@ public class MemAllocCodeGen extends CodeGen {
         int pointerSize = TypeSizeGetter.getSizeWordAlignment(new PointerType());
 
         // Set the old frame pointer address.
-        fpOffset = pointerSize;
+        fpOffset = -pointerSize;
         frame.setOffset(StackItem.FRAME_POINTER, fpOffset);
 
         // Process parameters.
