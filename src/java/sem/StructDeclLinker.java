@@ -15,6 +15,10 @@ public class StructDeclLinker extends BaseSemanticAnalyzer {
         switch (node) {
             case StructType st -> {
                 StructTypeSymbol s = ta.getStruct(st.typeName);
+                if (s == null) {
+                    error("No struct declaration found for st: " + st.typeName);
+                    return;
+                }
                 st.structTypeDecl = s.stdcl;
             }
            default -> {node.children().forEach(this::visit);}
