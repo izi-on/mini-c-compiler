@@ -1295,4 +1295,84 @@ public class CodeGenTest {
         String output = runCode(code);
         assertEquals(expectedOutput, output, "Array of structs should correctly store and access struct elements");
     }
+
+    @Test
+    public void testSortLinkedListWithFlags() throws IOException, InterruptedException {
+        String code = """
+        struct Node {
+            int val;
+            struct Node* next;
+            int exists;
+            int hasNext;
+        };
+
+        struct Node* newNode(int val) {
+            struct Node* node;
+            node = (struct Node*) mcmalloc(sizeof(struct Node));
+            (*node).val = val;
+            (*node).exists = 1;
+            (*node).hasNext = 0;
+            return node;
+        }
+
+        void sortList(struct Node* head) {
+            int swapped;
+            struct Node* ptr;
+            swapped = 1;
+            while (swapped) {
+                swapped = 0;
+                ptr = head;
+                while ((*ptr).hasNext) {
+                    if ((*ptr).val > (*((*ptr).next)).val) {
+                        int temp;
+                        temp = (*ptr).val;
+                        (*ptr).val = (*((*ptr).next)).val;
+                        (*((*ptr).next)).val = temp;
+                        swapped = 1;
+                    }
+                    ptr = (*ptr).next;
+                }
+            }
+        }
+
+        int main() {
+            struct Node* head;
+            struct Node* second;
+            struct Node* third;
+            struct Node* fourth;
+            struct Node* current;
+            
+            head = newNode(3);
+            second = newNode(1);
+            third = newNode(4);
+            fourth = newNode(2);
+            
+            (*head).next = second;
+            (*head).hasNext = 1;
+            
+            (*second).next = third;
+            (*second).hasNext = 1;
+            
+            (*third).next = fourth;
+            (*third).hasNext = 1;
+            
+            sortList(head);
+            
+            current = head;
+            while (1) {
+                print_i((*current).val);
+                if ((*current).hasNext) {
+                    print_c(',');
+                    current = (*current).next;
+                } else {
+                    break;
+                }
+            }
+            return 0;
+        }
+    """;
+        String expectedOutput = "1,2,3,4";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Sorting a linked list with exists/hasNext flags should result in 1,2,3,4");
+    }
 }
