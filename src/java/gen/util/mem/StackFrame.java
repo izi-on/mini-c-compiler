@@ -26,4 +26,5 @@ public abstract class StackFrame {
     public void setOffset(Decl item, int offset) {
         declOffsets.put(item, offset);
     }
+
 }

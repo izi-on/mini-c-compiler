@@ -39,9 +39,10 @@ public abstract class ValueHolder {
 
         @Override
         public void loadToTargetAddr() {
+            System.out.println("Loading from reg of type " + node.type + " of access type " + AccessTypeGetter.fromAlignmentSize(node.type).Save());
             AssemblyProgram.TextSection ts = asmProg.getCurrentTextSection();
-            AccessType at = AccessTypeGetter.fromAlignmentSize(node.type);
-            ts.emit(at.Save(), regVal, targetAddr, 0);
+            ts.emit("Loading from " + regVal + " from reg into " + targetAddr);
+            ts.emit(AccessTypeGetter.fromAlignmentSize(node.type).Save(), regVal, targetAddr, 0);
         }
 
         @Override
@@ -63,13 +64,16 @@ public abstract class ValueHolder {
 
         @Override
         public void loadToTargetAddr() {
+            System.out.println("Loading from mem to target addr type: " + node.type + " of size " + TypeSizeGetter.getSize(node.type));
             AssemblyProgram.TextSection ts = asmProg.getCurrentTextSection();
+            ts.emit("");
             ts.emit("Loading from " + srcAddr + " from stack into " + targetAddr);
             for (int i = 0; i < TypeSizeGetter.getSize(node.type); i++) { // TODO: use an emitted loop instead
                 Register r = Register.Virtual.create();
                 ts.emit(OpCode.LB, r, srcAddr, i);
                 ts.emit(OpCode.SB, r, targetAddr, i);
             }
+            ts.emit("");
         }
 
         @Override

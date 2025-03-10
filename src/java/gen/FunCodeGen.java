@@ -8,10 +8,7 @@ import gen.util.mem.context.MemContext;
 import gen.util.mem.StackFrame;
 import gen.util.mem.StackItem;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 /**
  * A visitor that produces code for a single function declaration
@@ -184,6 +181,42 @@ public class FunCodeGen extends CodeGen {
         }
     }
 
+    class SaveVirtualRegisters implements FunctionAction {
+
+        AssemblyProgram.TextSection ts;
+        SaveVirtualRegisters(AssemblyProgram.TextSection ts) {
+            this.ts = ts;
+        }
+        @Override
+        public void applyPrologue() {
+            ts.emit(OpCode.PUSH_REGISTERS);
+        }
+
+        @Override
+        public void applyEpilogue() {
+            ts.emit(OpCode.POP_REGISTERS);
+        }
+    }
+
+    class RememberStackPointer implements FunctionAction {
+
+        AssemblyProgram.TextSection ts;
+        Register trackCurOffset;
+        RememberStackPointer(AssemblyProgram.TextSection ts) {
+            this.ts = ts;
+            trackCurOffset = Register.Virtual.create();
+        }
+        @Override
+        public void applyPrologue() {
+            ts.emit(OpCode.ADDI, trackCurOffset, Register.Arch.sp, 0);
+        }
+
+        @Override
+        public void applyEpilogue() {
+            ts.emit(OpCode.ADDI, Register.Arch.sp, trackCurOffset, 0);
+        }
+    }
+
     public static String functionEndLabel(String name) {
         return name + "END";
     }
@@ -216,12 +249,14 @@ public class FunCodeGen extends CodeGen {
         FunctionAction saveAndSetFramePointer = new FramePointer(ts, funcFrame.get().offsetOf(StackItem.FRAME_POINTER).orElseThrow());
         FunctionAction saveReturnAddr = new ReturnAddr(ts, funcFrame.get().offsetOf(StackItem.RETURN_ADDR).orElseThrow());
         FunctionAction reserveStackFrameSpace = new StackMove(ts, funcFrame.get().offsetOf(StackItem.STACK_POINTER_OFFSET).orElseThrow());
-        FunctionAction actions = new AggregateFunctionAction(cleanStack, saveAndSetFramePointer, saveReturnAddr, reserveStackFrameSpace);
+        FunctionAction saveVirtualRegisters = new SaveVirtualRegisters(ts);
+        FunctionAction rememberStackPtr = new RememberStackPointer(ts);
+        FunctionAction actions = new AggregateFunctionAction(cleanStack, saveAndSetFramePointer, saveReturnAddr, reserveStackFrameSpace, saveVirtualRegisters, rememberStackPtr);
 
-        System.out.println("For func: " + fd.name + " the frame pointer size is: " + funcFrame.get().offsetOf(StackItem.STACK_POINTER_OFFSET).orElseThrow());
-
+        ts.emit("BEGIN PROLOGUE");
         label.applyPrologue();
         actions.applyPrologue();
+        ts.emit("END PROLOGUE");
 
         // 2) emit the body of the function
         MemContext.withStackFrame(funcFrame.get(), () -> {
@@ -234,8 +269,10 @@ public class FunCodeGen extends CodeGen {
         });
 
         // 3) emit the epilogue
+        ts.emit("BEGIN EPILOGUE");
         label.applyEpilogue(); // again, separately because the epilogue needs to run when the function exits
         actions.applyEpilogue();
+        ts.emit("END EPILOGUE");
         ts.emit(OpCode.JR, Register.Arch.ra); // return from function
     }
 }

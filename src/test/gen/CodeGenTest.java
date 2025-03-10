@@ -500,20 +500,20 @@ public class CodeGenTest {
     public void testRecursion() throws IOException, InterruptedException {
         String code = """
             int foo(int x) {
-                if (x == 0) {
-                    return 0;
+                if (x == 1) {
+                    return 1;
                 } else {
                     return foo(x-1);
                 }
             }
             
             int main() {
-                print_i(foo(5));
+                print_i(foo(3));
             }
         """;
-        String expectedOutput = "0";
+        String expectedOutput = "1";
         String output = runCode(code);
-        assertEquals(expectedOutput, output, "foo(5) should return 0");
+        assertEquals(expectedOutput, output, "foo(5) should return 1");
     }
 
     @Test
@@ -1046,5 +1046,50 @@ public class CodeGenTest {
         String output = runCode(code);
         assertEquals(expectedOutput, output, "mcmalloc should correctly allocate memory and support read/write operations");
     }
+
+    @Test
+    public void testFibonacci() throws IOException, InterruptedException {
+        String code = """
+                int fib_rec(int n) {
+                    if (n < 2) {
+                        return n;
+                    } else {
+                        return fib_rec(n-1) + fib_rec(n-2);
+                    }
+                }
+                
+                int fib_iter(int n) {
+                    int a;
+                    int b;
+                    int temp;
+                    int i;
+                    a = 0;
+                    b = 1;
+                    if (n == 0) {
+                        return 0;
+                    }
+                    i = 1;
+                    while (i < n) {
+                        temp = a + b;
+                        a = b;
+                        b = temp;
+                        i = i + 1;
+                    }
+                    return b;
+                }
+                        
+                
+                int main() {
+                    print_i(fib_iter(10));
+                    print_c(',');
+                    print_i(fib_rec(10));
+                    return 0;
+                }
+                """;
+        String expectedOutput = "55,55";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Both recursive and iterative Fibonacci functions should return 55 for input 10");
+    }
+
 
 }

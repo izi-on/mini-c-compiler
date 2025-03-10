@@ -49,7 +49,6 @@ public final class CodeGenerator {
      * regular file of that name cannot be created, or if some other error occurs while opening or creating the file.
      */
     public void emitProgram(Program astProgram, File outputFile) throws FileNotFoundException {
-
         // generate an assembly program with the code generator
         AssemblyProgram asmProgWithVirtualRegs = new AssemblyProgram();
         ProgramCodeGen progGen = new ProgramCodeGen(asmProgWithVirtualRegs);

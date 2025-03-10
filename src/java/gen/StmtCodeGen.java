@@ -90,12 +90,12 @@ public class StmtCodeGen extends CodeGen {
                 ts.emit(new Comment("Return statement start"));
                 ExprValCodeGen exprValCodeGen = new ExprValCodeGen(asmProg);
                 r.expr.ifPresent(expr -> {
-                    // set the target address
-                    Register targetAddr = Register.Virtual.create();
-                    ts.emit(OpCode.ADDIU, targetAddr, Register.Arch.fp, currentFrame.offsetOf(StackItem.RETURN_VAL).orElseThrow());
-
                     // get the value and set it
                     ValueHolder value = exprValCodeGen.visit(expr);
+
+                    // set the target address and load the value
+                    Register targetAddr = Register.Virtual.create();
+                    ts.emit(OpCode.ADDIU, targetAddr, Register.Arch.fp, currentFrame.offsetOf(StackItem.RETURN_VAL).orElseThrow());
                     value.setTargetAddr(targetAddr).loadToTargetAddr();
                 });
                 ts.emit(OpCode.JAL, Label.get(FunCodeGen.functionEndLabel(currentFrame.func.name)));

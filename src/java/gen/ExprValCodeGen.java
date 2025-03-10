@@ -27,8 +27,6 @@ public class ExprValCodeGen extends CodeGen {
         AssemblyProgram.TextSection ts = asmProg.getCurrentTextSection();
         switch (e) {
             case BinOp binop -> {
-                Register result = Register.Virtual.create();
-
                 switch (binop.op) {
                     case AND -> {
                         Label falseEval = Label.create("false_and");
@@ -41,6 +39,8 @@ public class ExprValCodeGen extends CodeGen {
                         // eval right
                         Register rightReg = visit(binop.rhs).getValRegister();
                         ts.emit(OpCode.BEQ, rightReg, Register.Arch.zero, falseEval);
+
+                        Register result = Register.Virtual.create();
 
                         // if here, then true
                         ts.emit(OpCode.ADDI, result, Register.Arch.zero, 1);
@@ -72,6 +72,8 @@ public class ExprValCodeGen extends CodeGen {
                         Register rightReg = visit(binop.rhs).getValRegister();
                         ts.emit(OpCode.BEQ, rightReg, oneReg, trueEval);
 
+                        Register result = Register.Virtual.create();
+
                         // if no branching here, false
                         ts.emit(OpCode.J, falseEval);
 
@@ -93,6 +95,8 @@ public class ExprValCodeGen extends CodeGen {
 
                 Register leftReg = visit(binop.lhs).getValRegister();
                 Register rightReg = visit(binop.rhs).getValRegister();
+
+                Register result = Register.Virtual.create();
 
                 switch (binop.op) {
                     case ADD ->
@@ -213,8 +217,15 @@ public class ExprValCodeGen extends CodeGen {
             }
 
             case FunCallExpr f -> {
+                ts.emit("BEGIN FUNCALL EXPR FOR " + f.fd.name);
                 // put args on stack
                 f.args.forEach(arg -> {
+                    ts.emit("LOADING ARG: " + arg.type);
+
+                    ts.emit("GETTING  VALUE");
+                    ValueHolder value = visit(arg);
+                    ts.emit("VALUE CAUGHT");
+
                     // move stack
                     ts.emit(OpCode.ADDIU, Register.Arch.sp, Register.Arch.sp, -TypeSizeGetter.getSizeWordAlignment(arg.type));
 
@@ -223,15 +234,17 @@ public class ExprValCodeGen extends CodeGen {
                     ts.emit(OpCode.ADDI, destinationAddr, Register.Arch.sp, 0);
 
                     // get the value and put it on the stack
-                    ValueHolder value = visit(arg);
                     value.setTargetAddr(destinationAddr).loadToTargetAddr();
                 });
 
                 // space for return value
+                ts.emit("SPACE FOR RETURN VALUE");
                 ts.emit(OpCode.ADDIU, Register.Arch.sp, Register.Arch.sp, -TypeSizeGetter.getSizeWordAlignment(f.type));
 
                 // call function
+                ts.emit("GO TO FUNCTION");
                 ts.emit(OpCode.JAL, Label.get(f.name));
+                ts.emit("BACK FROM FUNCTION");
 
                 // store return value in a register
                 Register returnValAddr = Register.Virtual.create();
