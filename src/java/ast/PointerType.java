@@ -14,6 +14,11 @@ public non-sealed class PointerType implements Type{
     }
 
     @Override
+    public String toString() {
+        return "Pointer of " + pointerizedType;
+    }
+
+    @Override
     public List<ASTNode> children() {
         List<ASTNode> children = new ArrayList<ASTNode>();
         children.add(pointerizedType);

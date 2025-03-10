@@ -1375,4 +1375,41 @@ public class CodeGenTest {
         String output = runCode(code);
         assertEquals(expectedOutput, output, "Sorting a linked list with exists/hasNext flags should result in 1,2,3,4");
     }
+
+    @Test
+    public void testFuncallMultiDimArray() throws IOException, InterruptedException {
+        String code = """
+        int sumMatrix(int m[2][3]) {
+            int i;
+            int j;
+            int sum;
+            i = 0;
+            sum = 0;
+            while (i < 2) {
+                j = 0;
+                while (j < 3) {
+                    sum = sum + m[i][j];
+                    j = j + 1;
+                }
+                i = i + 1;
+            }
+            return sum;
+        }
+        
+        int main() {
+            int arr[2][3];
+            arr[0][0] = 1;
+            arr[0][1] = 2;
+            arr[0][2] = 3;
+            arr[1][0] = 4;
+            arr[1][1] = 5;
+            arr[1][2] = 6;
+            print_i(sumMatrix(arr));
+            return 0;
+        }
+    """;
+        String expectedOutput = "21";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Function call with multi-dimensional array should return 21");
+    }
 }

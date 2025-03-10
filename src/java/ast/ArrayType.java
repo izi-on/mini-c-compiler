@@ -14,6 +14,11 @@ public non-sealed class ArrayType implements Type {
     }
 
     @Override
+    public String toString() {
+        return "Array of " + arrayedType.toString();
+    }
+
+    @Override
     public List<ASTNode> children() {
         List<ASTNode> children = new ArrayList<>();
         children.add(arrayedType);
