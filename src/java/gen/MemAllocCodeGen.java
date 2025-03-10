@@ -176,11 +176,12 @@ public class MemAllocCodeGen extends CodeGen {
                 for (VarDecl vd : struct.varDecls) {
                     int requiredAlignment = TypeSizeGetter.getAlignmentSize(vd.type);
                     int padding = (offset % requiredAlignment == 0) ? 0 : (requiredAlignment - (offset % requiredAlignment));
+                    offset += padding;
                     structFrame.setOffset(vd, offset);
-                    offset += padding + TypeSizeGetter.getSize(vd.type);
+                    offset += TypeSizeGetter.getSize(vd.type);
                 }
-                int padding = (offset % structAlignmentSize == 0) ? 0 : (structAlignmentSize - (offset % structAlignmentSize));
-                structFrame.setOffset(StackItem.POINTER_OFFSET, offset + padding);
+                offset += (offset % structAlignmentSize == 0) ? 0 : (structAlignmentSize - (offset % structAlignmentSize));
+                structFrame.setOffset(StackItem.POINTER_OFFSET, offset);
             }
         };
         visitor.visit(std);

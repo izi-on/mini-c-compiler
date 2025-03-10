@@ -881,18 +881,28 @@ public class CodeGenTest {
     @Test
     public void testSizeOfStruct() throws IOException, InterruptedException {
         String code = """
-                   struct S1 {
+               struct S1 {
                      char c1;
                      char c2;
                      int a;
                      char c3;
-                   };
+               };
+                   
+               struct Point {
+                    char a;
+                    char b;
+                    struct S1 lol[3];
+                };
+
+                   
                 int main() {
                     print_i(sizeof(struct S1));
+                    print_c(',');
+                    print_i(sizeof(struct Point));
                     return 0;
                 }
                 """;
-        String expectedOutput = "12";
+        String expectedOutput = "12,40";
         String output = runCode(code);
         assertEquals(expectedOutput, output, "Should be size 12");
     }
@@ -1108,6 +1118,7 @@ public class CodeGenTest {
         struct Node {
             int value;
             struct Node* next;
+            int exists;
             int hasNext;
         };
         
@@ -1118,6 +1129,7 @@ public class CodeGenTest {
             struct Node* nextNode;
             result = (struct Node*) mcmalloc(sizeof(struct Node));
             (*result).value = n;
+            (*result).exists = 1;
             if (n == 0) {
                 // Base case: termination of recursion.
             } else {
@@ -1141,10 +1153,12 @@ public class CodeGenTest {
             
             // Traverse the list and print each node's value.
             // A comma is printed between values (but not after the last value).
-            while ((*current).hasNext) {
+            while ((*current).exists) {
                 print_i((*current).value);
                 if ((*current).hasNext) {
                     print_c(',');
+                } else {
+                    break;
                 }
                 current = (*current).next;
             }
@@ -1156,4 +1170,129 @@ public class CodeGenTest {
         assertEquals(expectedOutput, output, "Recursive struct return with mcmalloc should produce 3,2,1,0");
     }
 
+    @Test
+    public void test3DArray() throws IOException, InterruptedException {
+        String code = """
+            int main() {
+                int arr[2][2][2];
+                arr[0][0][0] = 1;
+                arr[0][0][1] = 2;
+                arr[0][1][0] = 3;
+                arr[0][1][1] = 4;
+                arr[1][0][0] = 5;
+                arr[1][0][1] = 6;
+                arr[1][1][0] = 7;
+                arr[1][1][1] = 8;
+                print_i(arr[0][0][0]);
+                print_i(arr[0][0][1]);
+                print_i(arr[0][1][0]);
+                print_i(arr[0][1][1]);
+                print_i(arr[1][0][0]);
+                print_i(arr[1][0][1]);
+                print_i(arr[1][1][0]);
+                print_i(arr[1][1][1]);
+                return 0;
+            }
+        """;
+        String expectedOutput = "12345678";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "3D array test should print 12345678");
+    }
+
+    @Test
+    public void testMultiDimCharArray() throws IOException, InterruptedException {
+        String code = """
+            int main() {
+                char arr[2][3];
+                arr[0][0] = 'H';
+                arr[0][1] = 'i';
+                arr[0][2] = '!';
+                arr[1][0] = 'B';
+                arr[1][1] = 'y';
+                arr[1][2] = 'e';
+                print_c(arr[0][0]);
+                print_c(arr[0][1]);
+                print_c(arr[0][2]);
+                print_c(arr[1][0]);
+                print_c(arr[1][1]);
+                print_c(arr[1][2]);
+                return 0;
+            }
+        """;
+        String expectedOutput = "Hi!Bye";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Multi-dimensional char array should print 'Hi!Bye'");
+    }
+
+    @Test
+    public void testMultiDimArrayWithLoop() throws IOException, InterruptedException {
+        String code = """
+            int main() {
+                int arr[3][3];
+                int i;
+                int j;
+                arr[0][0] = 1;
+                arr[0][1] = 2;
+                arr[0][2] = 3;
+                arr[1][0] = 4;
+                arr[1][1] = 5;
+                arr[1][2] = 6;
+                arr[2][0] = 7;
+                arr[2][1] = 8;
+                arr[2][2] = 9;
+                i = 0;
+                while (i < 3) {
+                    j = 0;
+                    while (j < 3) {
+                        print_i(arr[i][j]);
+                        j = j + 1;
+                    }
+                    i = i + 1;
+                }
+                return 0;
+            }
+        """;
+        String expectedOutput = "123456789";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Looping through multi-dimensional array should print 123456789");
+    }
+
+    @Test
+    public void testArrayWithStructs() throws IOException, InterruptedException {
+        String code = """
+        // Define a struct 'Point' with two integer fields.
+        struct Point {
+            char a;
+            char b;
+            int x;
+            char c;
+            int y;
+        };
+        
+        int main() {
+            // Declare an array of three Points.
+            struct Point pts[3];
+            
+            // Initialize the array elements.
+            pts[0].x = 1;
+            pts[0].y = 2;
+            pts[1].x = 3;
+            pts[1].y = 4;
+            pts[2].x = 5;
+            pts[2].y = 6;
+            
+            // Print the values of each Point in the array.
+            print_i(pts[0].x);
+            print_i(pts[0].y);
+            print_i(pts[1].x);
+            print_i(pts[1].y);
+            print_i(pts[2].x);
+            print_i(pts[2].y);
+            return 0;
+        }
+    """;
+        String expectedOutput = "123456";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Array of structs should correctly store and access struct elements");
+    }
 }
