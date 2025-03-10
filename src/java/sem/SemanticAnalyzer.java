@@ -15,6 +15,10 @@ public class SemanticAnalyzer extends CompilerPass {
 		tc.visit(prog);
 		this.numErrors += tc.getNumErrors();
 
+		StructDeclLinker stdeclLinker = new StructDeclLinker(tc);
+		stdeclLinker.visit(prog);
+		this.numErrors += tc.getNumErrors();
+
 		AllowedStmntAnalyzer asa = new AllowedStmntAnalyzer();
 		asa.visit(prog);
 		this.numErrors += asa.getNumErrors();

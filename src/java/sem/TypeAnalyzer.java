@@ -43,7 +43,7 @@ public class TypeAnalyzer extends BaseSemanticAnalyzer {
 	}
 
 	// have a separate get method for structs because they have their own namespace for lookups and other identifiers should not intersect with them
-	private StructTypeSymbol getStruct(String structName) {
+	public StructTypeSymbol getStruct(String structName) {
 		Symbol s = scope.lookup(StructTypeSymbol.prefix() + structName);
 		return (StructTypeSymbol) s;
 	}
@@ -138,8 +138,9 @@ public class TypeAnalyzer extends BaseSemanticAnalyzer {
 			case VarDecl vd -> {
 				if (vd.type.equals(BaseType.VOID))
 					error(new UnexpectedTypeErr(vd.type));
-				scope.put(new TypeSymbol(vd.name, visit(vd.type)));
-				yield vd.type;
+				Type type = visit(vd.type);
+				scope.put(new TypeSymbol(vd.name, type));
+				yield type;
 			}
 
 			// --- Literals ---
@@ -406,9 +407,9 @@ public class TypeAnalyzer extends BaseSemanticAnalyzer {
 				if (!isValidTypeSymbol(s, st.typeName)) {
 					yield BaseType.UNKNOWN;
 				}
-				st.structTypeDecl = s.stdcl;
 				yield st;
 			}
+
 			case Type t -> {yield t;}
 
 			default -> {
