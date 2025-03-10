@@ -40,10 +40,6 @@ public abstract class Register {
          */
         public final String name;
 
-        static public void reset() {
-            instances.clear();
-        }
-
         private Virtual(String name) {
             this.name = name;
         }

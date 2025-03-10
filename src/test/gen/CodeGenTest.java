@@ -91,8 +91,6 @@ public class CodeGenTest {
     public void resetState() {
         MemContext.reset();
         NaiveRegAlloc.reset();
-        Register.Virtual.reset();
-        Label.reset();
     }
 
     @Test
@@ -1091,5 +1089,71 @@ public class CodeGenTest {
         assertEquals(expectedOutput, output, "Both recursive and iterative Fibonacci functions should return 55 for input 10");
     }
 
+    @Test
+    public void testHelloWorld() throws IOException, InterruptedException {
+        String code = """
+            int main() {
+                print_s((char*)"Hello World");
+            }
+        """;
+        String expectedOutput = "Hello World";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Should print hello world");
+    }
+
+    @Test
+    public void testRecursiveStructReturnAndMcmalloc() throws IOException, InterruptedException {
+        String code = """
+        // Define a Node struct with an integer value and a pointer to the next Node.
+        struct Node {
+            int value;
+            struct Node* next;
+            int hasNext;
+        };
+        
+        // Recursive function that returns a Node struct.
+        // It allocates memory with mcmalloc for the 'next' node when needed.
+        struct Node* createNode(int n) {
+            struct Node* result;
+            struct Node* nextNode;
+            result = (struct Node*) mcmalloc(sizeof(struct Node));
+            (*result).value = n;
+            if (n == 0) {
+                // Base case: termination of recursion.
+            } else {
+                // Allocate memory for the next node using mcmalloc,
+                // then recursively build the next Node.
+                nextNode = (struct Node*) mcmalloc(sizeof(struct Node));
+                nextNode = createNode(n - 1);
+                (*result).next = nextNode;
+                (*result).hasNext = 1;
+            }
+            return result;
+        }
+        
+        int main() {
+            // Create a linked list starting from 3 down to 0.
+            struct Node head;
+            struct Node* current;
+            
+            current = &head;
+            head = *createNode(3);
+            
+            // Traverse the list and print each node's value.
+            // A comma is printed between values (but not after the last value).
+            while ((*current).hasNext) {
+                print_i((*current).value);
+                if ((*current).hasNext) {
+                    print_c(',');
+                }
+                current = (*current).next;
+            }
+            return 0;
+        }
+    """;
+        String expectedOutput = "3,2,1,0";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Recursive struct return with mcmalloc should produce 3,2,1,0");
+    }
 
 }

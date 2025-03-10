@@ -6,6 +6,7 @@ import gen.asm.Label;
 import gen.asm.OpCode;
 import gen.asm.Register;
 import gen.error.UnexpectedExpressionError;
+import gen.util.emit.Emitter;
 import gen.util.mem.context.MemContext;
 import gen.util.struct.StructUtils;
 import gen.util.value_holder.ValueHolder;
@@ -18,7 +19,7 @@ public class ExprAddrCodeGen extends CodeGen {
     private Register getAddressAtIndex(Register addr, Register index, ArrayType arrType) {
         Register result = Register.Virtual.create();
         Register indexOffset = Register.Virtual.create();
-        asmProg.getCurrentTextSection().emitMultiplicationByImm(indexOffset, index, TypeSizeGetter.getSize(arrType.arrayedType));
+        new Emitter(asmProg.getCurrentTextSection()).emitMultiplicationByImm(indexOffset, index, TypeSizeGetter.getSize(arrType.arrayedType));
         asmProg.getCurrentTextSection().emit(OpCode.ADD, result, addr, indexOffset);
         return result;
     }
@@ -69,6 +70,7 @@ public class ExprAddrCodeGen extends CodeGen {
 
             case FieldAccessExpr fa -> {
                 // get the offset of the field
+                System.out.println("Getting field " + fa.field + " for " + fa.struct);
                 StructType strctType = (StructType) fa.struct.type;
                 Decl fieldDecl = StructUtils.getDeclOfField(strctType, fa.field).orElseThrow(() -> new IllegalStateException("field decl access not associated with decl in struct decl"));
                 int fieldOffset = MemContext

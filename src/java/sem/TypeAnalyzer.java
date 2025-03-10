@@ -168,6 +168,8 @@ public class TypeAnalyzer extends BaseSemanticAnalyzer {
 					structScope.set(getScope()); // capture the scope for which the struct was declared.
 				});
 				StructType structType = new StructType(std.name);
+				structType.structTypeDecl = std;
+				std.type = structType;
 				setStruct(new StructTypeSymbol(std, structType, structScope.get()));
 				yield structType;
 			}

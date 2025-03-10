@@ -431,7 +431,7 @@ public abstract class OpCode {
      * An opcode for store instructions.
      */
     public static final class Store extends OpCode {
-        public Store(String mnemonic) {
+        private Store(String mnemonic) {
             super(mnemonic);
         }
 

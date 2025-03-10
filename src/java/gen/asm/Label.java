@@ -36,10 +36,6 @@ public final class Label extends AssemblyTextItem {
     // This hash map interns flyweight instances to ensure that no two Virtual instances have the same name.
     private static final HashMap<String, Label> instances = new HashMap<>();
 
-    public static void reset() {
-        instances.clear();
-    }
-
     /**
      * Gets the unique label for a given name.
      *
@@ -50,7 +46,7 @@ public final class Label extends AssemblyTextItem {
         return instances.computeIfAbsent(name, Label::new);
     }
 
-    /*
+    /**
      * Creates a fresh label with a unique name.
      *
      * @param nameSuffix A suffix to append to the label's name.

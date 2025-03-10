@@ -3,6 +3,7 @@ package gen;
 import ast.*;
 import gen.asm.AssemblyProgram;
 import gen.asm.Label;
+import gen.util.emit.Emitter;
 import gen.util.mem.FuncStackFrame;
 import gen.util.mem.StackFrame;
 import gen.util.mem.StackItem;
@@ -143,7 +144,7 @@ public class MemAllocCodeGen extends CodeGen {
     private void handleVarDecl(VarDecl vd) {
         if (global) {
             System.out.println("Allocating global variable " + vd.name);
-            Label varLabel = asmProg.dataSection.emit(vd);
+            Label varLabel = new Emitter(asmProg.dataSection).dsEmit(vd);
             setGlobalVarLabel(vd, varLabel);
         } else {
             int size = TypeSizeGetter.getSizeWordAlignment(vd.type);
@@ -156,7 +157,7 @@ public class MemAllocCodeGen extends CodeGen {
      * Processes a string literal by emitting it into the data section.
      */
     private void handleStrLiteral(StrLiteral str) {
-        Label strLabel = asmProg.dataSection.emit(str);
+        Label strLabel = new Emitter(asmProg.dataSection).dsEmit(str);
         setStrLiteralLabel(str, strLabel);
     }
 

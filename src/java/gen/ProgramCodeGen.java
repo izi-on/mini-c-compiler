@@ -4,6 +4,7 @@ import ast.FunDef;
 import ast.Program;
 import gen.asm.*;
 import gen.util.builtin.implementations.functions.AggregateFunctionImplementations;
+import gen.util.emit.Emitter;
 import gen.util.mem.context.MemContext;
 
 /**
@@ -24,7 +25,7 @@ public class ProgramCodeGen extends CodeGen {
         AssemblyProgram.TextSection ts = asmProg.emitNewTextSection();
         ts.emit(OpCode.ADDIU, Register.Arch.sp, Register.Arch.sp, -4); // make space for return value
         ts.emit(OpCode.JAL, Label.get("main"));
-        ts.emitSyscall(10);
+        new Emitter(ts).emitSyscall(10);
 
         // generate the code for each function
         p.decls.forEach((d) -> {
