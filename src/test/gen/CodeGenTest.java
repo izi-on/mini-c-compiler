@@ -1412,4 +1412,234 @@ public class CodeGenTest {
         String output = runCode(code);
         assertEquals(expectedOutput, output, "Function call with multi-dimensional array should return 21");
     }
+
+    @Test
+    public void testArrayInStruct() throws IOException, InterruptedException {
+        String code = """
+        struct Data {
+            int nums[4];
+            char a;
+            char b;
+            char c;
+            int random;
+            char letters[2];
+        };
+        
+        int main() {
+            struct Data d;
+            d.nums[0] = 5;
+            d.nums[1] = 10;
+            d.nums[2] = 15;
+            d.nums[3] = 20;
+            d.letters[0] = 'a';
+            d.letters[1] = 'b';
+            print_i(d.nums[0]);
+            print_c(',');
+            print_i(d.nums[1]);
+            print_c(',');
+            print_i(d.nums[2]);
+            print_c(',');
+            print_i(d.nums[3]);
+            print_c(',');
+            print_c(d.letters[0]);
+            print_c(',');
+            print_c(d.letters[1]);
+            return 0;
+        }
+    """;
+        String expectedOutput = "5,10,15,20,a,b";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Array in struct should produce 5,10,15,20");
+    }
+
+
+    @Test
+    public void testFuncallMultiDimArrayGlobal() throws IOException, InterruptedException {
+        String code = """
+        int sumMatrix(int m[2][3]) {
+            int i;
+            int j;
+            int sum;
+            i = 0;
+            sum = 0;
+            while (i < 2) {
+                j = 0;
+                while (j < 3) {
+                    sum = sum + m[i][j];
+                    j = j + 1;
+                }
+                i = i + 1;
+            }
+            return sum;
+        }
+        
+        int arr[2][3];
+        
+        int main() {
+            arr[0][0] = 1;
+            arr[0][1] = 2;
+            arr[0][2] = 3;
+            arr[1][0] = 4;
+            arr[1][1] = 5;
+            arr[1][2] = 6;
+            print_i(sumMatrix(arr));
+            return 0;
+        }
+    """;
+        String expectedOutput = "21";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Function call with multi-dimensional array should return 21");
+    }
+
+    @Test
+    public void testArrayInStructGlobal() throws IOException, InterruptedException {
+        String code = """
+        struct Data {
+            int nums[4];
+            char a;
+            char b;
+            char c;
+            int random;
+            char letters[2];
+        };
+        
+        struct Data d;
+        
+        int main() {
+            d.nums[0] = 5;
+            d.nums[1] = 10;
+            d.nums[2] = 15;
+            d.nums[3] = 20;
+            d.letters[0] = 'a';
+            d.letters[1] = 'b';
+            print_i(d.nums[0]);
+            print_c(',');
+            print_i(d.nums[1]);
+            print_c(',');
+            print_i(d.nums[2]);
+            print_c(',');
+            print_i(d.nums[3]);
+            print_c(',');
+            print_c(d.letters[0]);
+            print_c(',');
+            print_c(d.letters[1]);
+            return 0;
+        }
+    """;
+        String expectedOutput = "5,10,15,20,a,b";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Array in struct should produce 5,10,15,20");
+    }
+
+    @Test
+    public void testShadowing() throws IOException, InterruptedException {
+        String code = """
+        int x; // global variable
+        int y; // global variable
+
+        int f(int x) {
+            print_i(x);  // should print 50
+            print_c(',');
+            {
+                int y;
+                y = 300;
+                print_i(y);  // should print 300
+            }
+            return 0;
+        }
+
+        int main() {
+            int x; // local x shadows global x
+            int y; // local y shadows global y
+            x = 10;
+            y = 20;
+            print_i(x);  // prints 10
+            print_c(',');
+            print_i(y);  // prints 20
+            print_c(',');
+            {
+                int x;  // new block shadows outer x
+                x = 30;
+                print_i(x);  // prints 30
+                print_c(',');
+            }
+            print_i(x);  // outer x remains 10
+            print_c(',');
+            f(50);       // f prints "50,300,"
+            print_c(',');
+            print_i(x);  // prints 10
+            return 0;
+        }
+    """;
+        String expectedOutput = "10,20,30,10,50,300,10";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Shadowing test should produce 10,20,30,10,50,300,10");
+    }
+
+
+    @Test
+    public void testDecimalToBin() throws IOException, InterruptedException {
+        String code = """
+            void decToBin(int num) {
+                int idx;
+                int remainder;
+                int result[20];
+                
+                idx = 0;
+                while (num) {
+                    remainder = num % 2;
+                    result[idx] = remainder;
+                    idx = idx + 1;
+                    num = num / 2;
+                }
+                idx = idx - 1;
+                
+                while (idx > -1) {
+                    print_i(result[idx]);
+                    idx = idx - 1;
+                }
+            }
+            
+            int main() {
+                decToBin(22);
+                return 0;
+            }
+        """;
+        String expectedOutput = "10110";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Shadowing test should produce 10,20,30,10,50,300,10");
+    }
+
+    @Test
+    public void testFactorial() throws IOException, InterruptedException {
+        String code = """
+        int factorial_rec(int n) {
+            if (n <= 1) {
+                return 1;
+            } else {
+                return n * factorial_rec(n - 1);
+            }
+        }
+        
+        int factorial_iter(int n) {
+            int result;
+            result = 1;
+            while (n > 1) {
+                result = result * n;
+                n = n - 1;
+            }
+            return result;
+        }
+        
+        int main() {
+            print_i(factorial_rec(5));
+            print_c(',');
+            print_i(factorial_iter(5));
+            return 0;
+        }
+    """;
+        String expectedOutput = "120,120";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Factorial test should produce 120,120");
+    }
 }
