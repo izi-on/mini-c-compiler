@@ -851,6 +851,9 @@ public class CodeGenTest {
                    struct S2 s;
                    char c2;\s
                  };
+                 struct S5 {
+                    struct S2 arr[3];
+                 };
                                                                  
                     int main() {
                         print_i(sizeof(int));
@@ -870,10 +873,12 @@ public class CodeGenTest {
                         print_i(sizeof(struct S3));
                         print_c(',');
                         print_i(sizeof(struct S4));
+                        print_c(',');
+                        print_i(sizeof(struct S5));
                         return 0;
                     }
                 """;
-        String expectedOutput = "4,1,4,4,8,12,3,20,5";
+        String expectedOutput = "4,1,4,4,8,12,3,20,5,9";
         String output = runCode(code);
         assertEquals(expectedOutput, output, "sizeof(int), sizeof(char), sizeof(int*), sizeof(char*) should print 4,1,4,4,8,12,3,20,5");
     }
@@ -1582,11 +1587,11 @@ public class CodeGenTest {
         String code = """
             void decToBin(int num) {
                 int idx;
-                int remainder;
                 int result[20];
                 
                 idx = 0;
                 while (num) {
+                    int remainder;
                     remainder = num % 2;
                     result[idx] = remainder;
                     idx = idx + 1;
@@ -1654,5 +1659,301 @@ public class CodeGenTest {
         String expectedOutput = "Hello\nWorld\tTabbed\nBackslash: \\ \nQuote: \"";
         String output = runCode(code);
         assertEquals(expectedOutput, output, "Escape characters should be correctly interpreted");
+    }
+
+    @Test
+    public void testReturnValStruct() throws IOException, InterruptedException {
+        String code = """
+                        struct Point {
+                          int x;
+                          int y;
+                        };
+                               
+                        void modifyPoint(struct Point p) {
+                          // Modify the struct passed by value
+                          p.x = 100;
+                          p.y = 200;
+                               
+                          // Print the modified values inside the function
+                          print_i(p.x);
+                          print_s((char*)" ");
+                          print_i(p.y);
+                          print_s((char*)" ");
+                        }
+                               
+                        void main() {
+                          struct Point original;
+                               
+                          // Initialize the struct
+                          original.x = 10;
+                          original.y = 20;
+                               
+                          // Print original values before function call
+                          print_i(original.x);
+                          print_s((char*)" ");
+                          print_i(original.y);
+                          print_s((char*)" ");
+                               
+                          // Call function passing struct by value
+                          modifyPoint(original);
+                               
+                          // Print original values after function call
+                          // These should remain unchanged if struct is truly passed by value
+                          print_i(original.x);
+                          print_s((char*)" ");
+                          print_i(original.y);
+                        }
+                """;
+        String expectedOutput = "10 20 100 200 10 20";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Escape characters should be correctly interpreted");
+    }
+
+    @Test
+    public void testEscapeCharactersInStringLiteral() throws IOException, InterruptedException {
+        String code = """
+        int main() {
+            print_s((char*)"A\\aB\\bC\\nD\\rE\\tF\\\\G\\'H\\\"I\\0J");
+            return 0;
+        }
+        """;
+        String expectedOutput = "A\u0007B\u0008C\nD\rE\tF\\G'H\"I";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Escape characters in string literal should be correctly interpreted");
+    }
+
+    @Test
+    public void testEscapeCharactersUsingPrintC() throws IOException, InterruptedException {
+        String code = """
+        int main() {
+            print_c('A');
+            print_c('\\a');
+            print_c('B');
+            print_c('\\b');
+            print_c('C');
+            print_c('\\n');
+            print_c('D');
+            print_c('\\r');
+            print_c('E');
+            print_c('\\t');
+            print_c('F');
+            print_c('\\\\');
+            print_c('G');
+            print_c('\\\'');
+            print_c('H');
+            print_c('\\\"');
+            print_c('I');
+            print_c('\\0');
+            return 0;
+        }
+        """;
+        String expectedOutput = "A\u0007B\u0008C\nD\rE\tF\\G'H\"I\0";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Escape characters printed using print_c should produce the correct output");
+    }
+
+    @Test
+    public void testGlobalAlignment() throws IOException, InterruptedException {
+        String code = """
+        // Global variable declarations
+        int gi;             // global int
+        char gc;            // global char
+        int gtarget;        // target for pointer test
+        int* gptr;          // global pointer
+        int ga[3];          // global int array
+
+        // A simple struct with an int and a char
+        struct S {
+            int a;
+            char b;
+        };
+        struct S gs;        // global struct variable
+
+        // A nested struct containing an array of struct S and an extra char
+        struct Nested {
+            struct S arr[2];
+            char c;
+        };
+        struct Nested gn;   // global nested struct
+
+        // Main function: assign values and then print them
+        int main() {
+            gi = 100;
+            gc = 'Z';
+            gtarget = 200;
+            gptr = &gtarget;
+            ga[0] = 1;
+            ga[1] = 2;
+            ga[2] = 3;
+            gs.a = 400;
+            gs.b = 'Q';
+            gn.arr[0].a = 500;
+            gn.arr[0].b = 'W';
+            gn.arr[1].a = 600;
+            gn.arr[1].b = 'E';
+            gn.c = 'N';
+
+            // Print all global values in sequence
+            print_i(gi);      // 100
+            print_c(gc);      // Z
+            print_i(*gptr);   // 200
+            print_i(ga[0]);   // 1
+            print_i(ga[1]);   // 2
+            print_i(ga[2]);   // 3
+            print_i(gs.a);    // 400
+            print_c(gs.b);    // Q
+            print_i(gn.arr[0].a); // 500
+            print_c(gn.arr[0].b); // W
+            print_i(gn.arr[1].a); // 600
+            print_c(gn.arr[1].b); // E
+            print_c(gn.c);        // N
+            return 0;
+        }
+        """;
+        String expectedOutput = "100Z200123400Q500W600EN";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Global variable alignment test failed");
+    }
+
+    @Test
+    public void testStructPaddingSimple() throws IOException, InterruptedException {
+        String code = """
+        struct Test1 {
+            char a;
+            int b;
+            char c;
+        };
+
+        int main() {
+            struct Test1 t;
+            t.a = 'A';
+            t.b = 1234;
+            t.c = 'B';
+            print_c(t.a);
+            print_i(t.b);
+            print_c(t.c);
+            return 0;
+        }
+        """;
+        String expectedOutput = "A1234B";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Struct padding simple test failed");
+    }
+
+    @Test
+    public void testArrayOfStructs() throws IOException, InterruptedException {
+        String code = """
+        struct Data {
+            char a;
+            int b;
+        };
+
+        struct Data arr[3];
+
+        int main() {
+            arr[0].a = 'X'; arr[0].b = 10;
+            arr[1].a = 'Y'; arr[1].b = 20;
+            arr[2].a = 'Z'; arr[2].b = 30;
+            print_c(arr[0].a);
+            print_i(arr[0].b);
+            print_c(arr[1].a);
+            print_i(arr[1].b);
+            print_c(arr[2].a);
+            print_i(arr[2].b);
+            return 0;
+        }
+        """;
+        String expectedOutput = "X10Y20Z30";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Array of structs test failed");
+    }
+
+    @Test
+    public void testCharIntGlobalOrder() throws IOException, InterruptedException {
+        String code = """
+        char c;
+        int i;
+
+        int main() {
+            c = 'F';
+            i = 2022;
+            print_c(c);
+            print_i(i);
+            return 0;
+        }
+        """;
+        String expectedOutput = "F2022";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Global char and int order test failed");
+    }
+
+    @Test
+    public void testComplexNestedStruct() throws IOException, InterruptedException {
+        String code = """
+        struct Inner {
+            char a;
+            int b;
+        };
+
+        struct Outer {
+            int x;
+            struct Inner in;
+            char c;
+        };
+
+        struct Outer o;
+
+        int main() {
+            o.x = 111;
+            o.in.a = 'K';
+            o.in.b = 222;
+            o.c = 'L';
+            print_i(o.x);
+            print_c(o.in.a);
+            print_i(o.in.b);
+            print_c(o.c);
+            return 0;
+        }
+        """;
+        String expectedOutput = "111K222L";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Complex nested struct test failed");
+    }
+
+    @Test
+    public void testMixedGlobals() throws IOException, InterruptedException {
+        String code = """
+        int i1;
+        char c1;
+        int i2;
+        struct Mixed {
+            char a;
+            int b;
+            char c;
+        };
+        struct Mixed m1;
+        char c2;
+
+        int main() {
+            i1 = 111;
+            c1 = 'A';
+            i2 = 222;
+            m1.a = 'B';
+            m1.b = 333;
+            m1.c = 'C';
+            c2 = 'D';
+            print_i(i1);
+            print_c(c1);
+            print_i(i2);
+            print_c(m1.a);
+            print_i(m1.b);
+            print_c(m1.c);
+            print_c(c2);
+            return 0;
+        }
+        """;
+        String expectedOutput = "111A222B333CD";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Mixed globals alignment test failed");
     }
 }

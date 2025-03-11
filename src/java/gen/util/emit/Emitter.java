@@ -29,7 +29,7 @@ public class Emitter {
         switch (vd.type) {
             case BaseType bt -> {
                 switch(AccessTypeGetter.fromAlignmentSize(bt)) {
-                    case Byte b -> ds.emit(new Directive("byte 0"));
+                    case Byte b -> ds.emit(new Directive("word 0")); // set to be word aligned
                     case Word w -> ds.emit(new Directive("word 0"));
                     default -> throw new IllegalArgumentException("Unsupported global type: " + vd.type);
                 }

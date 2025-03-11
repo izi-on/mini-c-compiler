@@ -19,7 +19,6 @@ public final class AggregateType implements Type {
     public boolean equals(Object o) {
         if (o instanceof AggregateType) {
             AggregateType at = (AggregateType) o;
-            System.out.println("Checkin equality for aggregate type " + this);
             return types.equals(at.types);
         }
         return false;

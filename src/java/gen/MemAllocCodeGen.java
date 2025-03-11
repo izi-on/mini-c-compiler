@@ -143,7 +143,6 @@ public class MemAllocCodeGen extends CodeGen {
      */
     private void handleVarDecl(VarDecl vd) {
         if (global) {
-            System.out.println("Allocating global variable " + vd.name);
             Label varLabel = new Emitter(asmProg.dataSection).dsEmit(vd);
             setGlobalVarLabel(vd, varLabel);
         } else {
@@ -152,8 +151,6 @@ public class MemAllocCodeGen extends CodeGen {
             currentFuncFrame.get().setOffset(vd, fpOffset);
         }
     }
-
-    // TODO: align globals
 
     /**
      * Processes a string literal by emitting it into the data section.
@@ -188,4 +185,6 @@ public class MemAllocCodeGen extends CodeGen {
         };
         visitor.visit(std);
     }
+
+
 }
