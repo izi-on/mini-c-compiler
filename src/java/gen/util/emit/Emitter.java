@@ -51,7 +51,7 @@ public class Emitter {
     public Label dsEmit(StrLiteral str) {
         Label label = Label.create("str");
         ds.emit(label);
-        ds.emit(new Directive("asciiz " + "\"" + str.value + "\""));
+        ds.emit(new Directive("asciiz " + "\"" + str.rawData + "\""));
         (new Aligner(new TypeSizeGetter())).align(str.value).ifPresent(align -> ds.emit(new Directive("align " + align)));
         return label;
     }

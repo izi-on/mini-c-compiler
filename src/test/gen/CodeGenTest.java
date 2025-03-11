@@ -1642,4 +1642,17 @@ public class CodeGenTest {
         String output = runCode(code);
         assertEquals(expectedOutput, output, "Factorial test should produce 120,120");
     }
+
+    @Test
+    public void testEscapeCharacters() throws IOException, InterruptedException {
+        String code = """
+        int main() {
+            print_s((char*)"Hello\\nWorld\\tTabbed\\nBackslash: \\\\ \\nQuote: \\\"");
+            return 0;
+        }
+        """;
+        String expectedOutput = "Hello\nWorld\tTabbed\nBackslash: \\ \nQuote: \"";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Escape characters should be correctly interpreted");
+    }
 }

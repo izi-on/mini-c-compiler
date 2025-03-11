@@ -153,6 +153,8 @@ public class MemAllocCodeGen extends CodeGen {
         }
     }
 
+    // TODO: align globals
+
     /**
      * Processes a string literal by emitting it into the data section.
      */

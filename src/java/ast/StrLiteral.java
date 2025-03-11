@@ -7,11 +7,13 @@ import java.util.List;
 
 public final class StrLiteral extends Expr {
     public String value;
+    public String rawData;
 
     public StrLiteral(String data) {
         // data can be an escape sequence like \n
         // so, parse
         this.value = Unescape.unescape(data);
+        this.rawData = data;
     }
 
     @Override
