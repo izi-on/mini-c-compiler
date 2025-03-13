@@ -2,6 +2,7 @@ package gen;
 
 import ast.ASTPrinter;
 import ast.Program;
+import gen.asm.AssemblyProgram;
 import gen.asm.Label;
 import gen.asm.Register;
 import gen.util.mem.context.MemContext;
@@ -1955,5 +1956,418 @@ public class CodeGenTest {
         String expectedOutput = "111A222B333CD";
         String output = runCode(code);
         assertEquals(expectedOutput, output, "Mixed globals alignment test failed");
+    }
+
+
+    // TODO: fix this test
+    @Test
+    public void testArrayFunCall() throws IOException, InterruptedException {
+        String code = """
+                    struct Point {
+                        char y[5];
+                        int x[5];
+                    };
+                    
+                    void modify(int arr[5]) {
+                        arr[0] = 7;
+                        arr[1] = 6;
+                    }
+                    
+                    void modifyChar(char arr[5]) {
+                        arr[2] = 'c';
+                        arr[3] = 'd';
+                    }
+                    
+                    int main() {
+                        struct Point p;
+                        modify(p.x);
+                        modifyChar(p.y);
+                        print_i(p.x[0]);
+                        print_i(p.x[1]);
+                        print_c(p.y[2]);
+                        print_c(p.y[3]);
+                        return 0;
+                    }
+                """;
+        String output = runCode(code);
+        assertEquals("76cd", output);
+    }
+
+    // TODO fix this
+    @Test
+    public void testArrayPassedByRef() throws IOException, InterruptedException {
+        String code = """
+                        struct Container {
+                          char letters[3];
+                          int values[3];
+                          char tag;
+                        };
+                                
+                        void modifyValues(int* values, int size) {
+                          int i;
+                          i = 0;
+                          while (i < size) {
+                            values[i] = values[i] * 2;
+                            i = i + 1;
+                          }
+                        }
+                        
+                        void modifyLetters(char* letters, int size) {
+                          int i;
+                          i = 0;
+                          while (i < size) {
+                            letters[i] = 'd';
+                            i = i + 1;
+                          }
+                        }
+                                
+                         
+                        void main() {
+                         struct Container grid[2][2][2];
+                                
+                          int i;
+                          int j;
+                          int k;
+                                
+                          i = 0;
+                                
+                          while (i < 2) {
+                            j = 0;
+                                
+                            while (j < 2) {
+                              k = 0;
+                                
+                              while (k < 2) {
+                                int letterOffset;
+                                
+                                grid[i][j][k].values[0] = i*100 + j*10 + k + 1;
+                                grid[i][j][k].values[1] = i*100 + j*10 + k + 2;
+                                grid[i][j][k].values[2] = i*100 + j*10 + k + 3;
+                                grid[i][j][k].letters[0] = 'a';
+                                grid[i][j][k].letters[1] = 'b';
+                                grid[i][j][k].letters[2] = 'c';
+                                
+                                letterOffset = i + j + k;
+                                
+                                
+                                if (letterOffset == 0) {
+                                  grid[i][j][k].tag = 'A';
+                                }
+                                
+                                if (letterOffset == 1) {
+                                  grid[i][j][k].tag = 'B';
+                                }
+                                
+                                if (letterOffset == 2) {
+                                  grid[i][j][k].tag = 'C';
+                                }
+                                
+                                if (letterOffset == 3) {
+                                  grid[i][j][k].tag = 'D';
+                                }
+                                
+                                k = k + 1;
+                              }
+                                
+                              j = j + 1;
+                            }
+                                
+                            i = i + 1;
+                          }
+                                
+                          // Print values before modification
+                          print_i(grid[1][1][0].values[0]);
+                          print_c(grid[1][1][0].letters[0]);
+                          print_s((char*)" ");
+                          print_i(grid[1][1][0].values[1]);
+                          print_c(grid[1][1][0].letters[1]);
+                          print_s((char*)" ");
+                          print_i(grid[1][1][0].values[2]);
+                          print_c(grid[1][1][0].letters[2]);
+                          print_s((char*)" ");
+                          print_c(grid[1][1][0].tag);
+                          print_s((char*)"\\n");
+                                
+                          // Typecast and modify the array inside the struct
+                          modifyValues((int*) grid[1][1][0].values, 3);
+                          modifyLetters((char*) grid[1][1][0].letters, 3);
+                                
+                          // Print values after modification
+                          print_i(grid[1][1][0].values[0]);
+                          print_c(grid[1][1][0].letters[0]);
+                          print_s((char*)" ");
+                          print_i(grid[1][1][0].values[1]);
+                          print_c(grid[1][1][0].letters[1]);
+                          print_s((char*)" ");
+                          print_i(grid[1][1][0].values[2]);
+                          print_c(grid[1][1][0].letters[2]);
+                          print_s((char*)" ");
+                          print_c(grid[1][1][0].tag);
+                        }
+                """;
+        String output = runCode(code);
+        assertEquals("111a 112b 113c C\n222d 224d 226d C", output);
+    }
+
+    @Test
+    public void testShadowingIfElseBlocks() throws IOException, InterruptedException {
+        String code = """
+        int main() {
+            int val;
+            val = 100;
+            if (val == 100) {
+                int val;
+                val = 200;
+                print_i(val);  // prints 200 (inner if-block)
+                print_c(',');
+            } else {
+                int val;
+                val = 300;
+                print_i(val);  // would print 300 if executed
+                print_c(',');
+            }
+            print_i(val); // prints 100 (outer variable remains unchanged)
+            return 0;
+        }
+    """;
+        String expectedOutput = "200,100";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "If-Else block shadowing test failed");
+    }
+
+    @Test
+    public void testConsecutiveBlockShadowing() throws IOException, InterruptedException {
+        String code = """
+        int main() {
+            int x;
+            x = 5;
+            {
+                int x;
+                x = 6;
+                print_i(x);  // prints 6
+                print_c(',');
+            }
+            {
+                int x;
+                x = 7;
+                print_i(x);  // prints 7
+                print_c(',');
+            }
+            print_i(x);  // prints 5 (outer x remains unchanged)
+            return 0;
+        }
+    """;
+        String expectedOutput = "6,7,5";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Consecutive block shadowing test failed");
+    }
+
+    @Test
+    public void testShadowingInLoopWithInnerBlock() throws IOException, InterruptedException {
+        String code = """
+        int main() {
+            int counter;
+            counter = 0;
+            while (counter < 3) {
+                {
+                    int counter;
+                    counter = 50;
+                    print_i(counter);  // prints 50 (inner block variable)
+                    print_c(',');
+                }
+                print_i(counter);  // prints outer counter (0, then 1, then 2)
+                if (counter < 2) {  // add separator only between iterations
+                    print_c(',');
+                }
+                counter = counter + 1;
+            }
+            return 0;
+        }
+    """;
+        // Expected for each iteration:
+        // Iteration 0: inner prints 50, then outer prints 0 → "50,0"
+        // Iteration 1: inner prints 50, then outer prints 1 → "50,1"
+        // Iteration 2: inner prints 50, then outer prints 2 → "50,2"
+        // Combined expected output: "50,0,50,1,50,2"
+        String expectedOutput = "50,0,50,1,50,2";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Loop with inner block shadowing test failed");
+    }
+    @Test
+    public void testGlobalShadowingLocal() throws IOException, InterruptedException {
+        String code = """
+        int a;  // global variable 'a'
+        void init() {
+            a = 10;
+        }
+        int main() {
+            init();
+            print_i(a);  // prints global a: 10
+            print_c(',');
+            {
+                int a;  // local 'a' shadows global
+                a = 20;
+                print_i(a);  // prints local a: 20
+                print_c(',');
+            }
+            print_i(a);  // prints global a again: 10
+            return 0;
+        }
+    """;
+        String expectedOutput = "10,20,10";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Local declaration should shadow the global variable within its block.");
+    }
+
+    @Test
+    public void testGlobalShadowingInFunctionParameter() throws IOException, InterruptedException {
+        String code = """
+        int x; // global variable 'x'
+        void init() {
+            x = 5;
+        }
+        int f(int x) {  // parameter 'x' shadows global 'x'
+            print_i(x); // prints parameter value: value passed to f()
+            return 0;
+        }
+        int main() {
+            init();
+            print_i(x); // prints global x: 5
+            print_c(',');
+            f(15);      // prints 15 (function parameter)
+            print_c(',');
+            print_i(x); // prints global x again: 5
+            return 0;
+        }
+    """;
+        String expectedOutput = "5,15,5";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Function parameters should shadow globals without modifying them.");
+    }
+
+    @Test
+    public void testGlobalShadowingAcrossFunctions() throws IOException, InterruptedException {
+        String code = """
+        int g;  // global variable 'g'
+        void init() {
+            g = 100;
+        }
+        int f() {
+            print_i(g);  // prints global g: 100
+            return 0;
+        }
+        int main() {
+            int g;  // local g in main shadows the global in main's scope only
+            init();
+            g = 200;
+            print_i(g);   // prints local g: 200
+            print_c(',');
+            f();          // prints 100, because f() uses the global g
+            print_c(',');
+            print_i(g);   // prints local g: 200
+            return 0;
+        }
+    """;
+        String expectedOutput = "200,100,200";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Functions without local shadowing should access the global variable.");
+    }
+
+    @Test
+    public void testGlobalAndLocalMultipleShadowing() throws IOException, InterruptedException {
+        String code = """
+        int a;  // global variable 'a'
+        int init() {
+            a = 5;
+        }
+        int main() {
+            init();
+            print_i(a);   // prints global a: 5
+            print_c(',');
+            {
+                int a;  // shadowing global a
+                a = 10;
+                print_i(a);  // prints local a: 10
+                print_c(',');
+                {
+                    int a; // further shadowing in inner block
+                    a = 15;
+                    print_i(a);  // prints innermost a: 15
+                    print_c(',');
+                }
+                print_i(a);    // prints the inner block a: 10
+                print_c(',');
+            }
+            print_i(a);        // prints global a: 5
+            return 0;
+        }
+    """;
+        String expectedOutput = "5,10,15,10,5";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Multiple nested levels should preserve their own variable values and leave globals unchanged.");
+    }
+
+    @Test
+    public void testGlobalShadowingWithParameterInnerBlock() throws IOException, InterruptedException {
+        String code = """
+        int b; // global variable 'b'
+        int init() {
+            b = 50;
+        }
+        int f(int b) { // parameter 'b' shadows global 'b'
+            print_i(b); // prints function parameter: 100 (if passed 100)
+            print_c(',');
+            {
+                int b; // inner block variable shadows function parameter
+                b = 75;
+                print_i(b); // prints 75
+                print_c(',');
+            }
+            print_i(b); // prints original parameter value: 100
+            return 0;
+        }
+        int main() {
+            init();
+            print_i(b);  // prints global b: 50
+            print_c(',');
+            f(100);      // prints "100,75,100"
+            print_c(',');
+            print_i(b);  // prints global b: 50 (unchanged)
+            return 0;
+        }
+    """;
+        String expectedOutput = "50,100,75,100,50";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Local and parameter shadowing should not affect the global variable.");
+    }
+
+    @Test
+    public void testGlobalUsedInExpressionShadowing() throws IOException, InterruptedException {
+        String code = """
+        int c; // global variable 'c'
+        int init() {
+            c = 10;
+        }
+        int main() {
+            int d;
+            init();
+            d = c + 5; // uses global c: 10 + 5 = 15
+            print_i(d); // prints 15
+            print_c(',');
+            {
+                int c; // local shadowing: now c is 20 in this block
+                c = 20;
+                d = c + 5; // 20 + 5 = 25
+                print_i(d); // prints 25
+                print_c(',');
+            }
+            d = c + 5; // outside block, global c is used: 10 + 5 = 15
+            print_i(d); // prints 15
+            return 0;
+        }
+    """;
+        String expectedOutput = "15,25,15";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Expressions should use the nearest variable declaration in scope.");
     }
 }

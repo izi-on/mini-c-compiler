@@ -5,13 +5,11 @@ import gen.asm.AssemblyProgram;
 import gen.asm.Label;
 import gen.asm.OpCode;
 import gen.asm.Register;
-import gen.util.mem.access.AccessTypeGetter;
 import gen.util.mem.context.MemContext;
-import gen.util.struct.StructUtils;
+import gen.util.rules.PassByRef;
 import gen.util.value_holder.ValueHolder;
 
-import java.util.GregorianCalendar;
-import java.util.Optional;
+import java.awt.*;
 
 
 /**
@@ -160,7 +158,9 @@ public class ExprValCodeGen extends CodeGen {
 
             case ArrayAccessExpr arrAccess -> {
                 Register addrOfArr = (new ExprAddrCodeGen(asmProg)).visit(arrAccess);
-                return new ValueHolder.OnMemoryAddr(asmProg, arrAccess, addrOfArr);
+                return PassByRef.ifIs(arrAccess.type).then(subtype -> {
+                    return new ValueHolder.OnRegister(asmProg, new PointerType(subtype), addrOfArr);
+                }).orElse(new ValueHolder.OnMemoryAddr(asmProg, arrAccess, addrOfArr));
             }
 
             case Assign a -> {
@@ -191,8 +191,10 @@ public class ExprValCodeGen extends CodeGen {
             }
 
             case FieldAccessExpr fa -> {
-                Register addrOfStruct = (new ExprAddrCodeGen(asmProg)).visit(fa);
-                return new ValueHolder.OnMemoryAddr(asmProg, fa, addrOfStruct);
+                Register toAccessAddr = (new ExprAddrCodeGen(asmProg)).visit(fa);
+                return PassByRef.ifIs(fa.type).then(subtype -> {
+                    return new ValueHolder.OnRegister(asmProg, new PointerType(subtype), toAccessAddr);
+                }).orElse(new ValueHolder.OnMemoryAddr(asmProg, fa, toAccessAddr));
             }
 
             case SizeOfExpr sof -> {
@@ -206,12 +208,20 @@ public class ExprValCodeGen extends CodeGen {
                         .computeIfGlobal(labelOfVar -> {
                             Register addr = Register.Virtual.create();
                             ts.emit(OpCode.LA, addr, labelOfVar);
-                            return new ValueHolder.OnMemoryAddr(asmProg, ve, addr);
+                            return PassByRef.ifIs(ve.type).then(subtype -> {
+                                return new ValueHolder.OnRegister(asmProg, new PointerType(subtype), addr);
+                            }).orElse(new ValueHolder.OnMemoryAddr(asmProg, ve, addr));
                         })
                         .computeIfLocal(offsetOfVar -> {
                             Register addr = Register.Virtual.create();
                             ts.emit(OpCode.ADDIU, addr, Register.Arch.fp, offsetOfVar);
-                            return new ValueHolder.OnMemoryAddr(asmProg, ve, addr);
+                            return PassByRef.ifIs(ve.type).then(subtype -> {
+                                if (offsetOfVar >= 0) { // this means it was passed to the function, so pointer
+                                    ts.emit("Is pointer type, so load from the address");
+                                    ts.emit(OpCode.LW, addr, addr, 0);
+                                }
+                                return new ValueHolder.OnRegister(asmProg, new PointerType(subtype), addr);
+                            }).orElse(new ValueHolder.OnMemoryAddr(asmProg, ve, addr));
                         })
                         .getValue();
             }
@@ -227,7 +237,7 @@ public class ExprValCodeGen extends CodeGen {
                     ts.emit("VALUE CAUGHT");
 
                     // move stack
-                    ts.emit(OpCode.ADDIU, Register.Arch.sp, Register.Arch.sp, -TypeSizeGetter.getSizeWordAlignment(arg.type));
+                    ts.emit(OpCode.ADDIU, Register.Arch.sp, Register.Arch.sp, -TypeSizeGetter.getSizeWordAlignmentForFunc(arg.type));
 
                     // create register for the destination addr
                     Register destinationAddr = Register.Virtual.create();
@@ -239,7 +249,7 @@ public class ExprValCodeGen extends CodeGen {
 
                 // space for return value
                 ts.emit("SPACE FOR RETURN VALUE");
-                ts.emit(OpCode.ADDIU, Register.Arch.sp, Register.Arch.sp, -TypeSizeGetter.getSizeWordAlignment(f.type));
+                ts.emit(OpCode.ADDIU, Register.Arch.sp, Register.Arch.sp, -TypeSizeGetter.getSizeWordAlignmentForFunc(f.type));
 
                 // call function
                 ts.emit("GO TO FUNCTION");

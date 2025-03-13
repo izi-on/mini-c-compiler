@@ -4,6 +4,7 @@ import ast.ASTNode;
 import ast.*;
 import gen.util.mem.StackItem;
 import gen.util.mem.context.MemContext;
+import gen.util.rules.PassByRef;
 
 public class TypeSizeGetter {
     public static final int WORD_SIZE = 4;
@@ -43,6 +44,13 @@ public class TypeSizeGetter {
         int size = getSize(type);
         int alignment = (size % TypeSizeGetter.WORD_SIZE != 0) ? TypeSizeGetter.WORD_SIZE - (size % TypeSizeGetter.WORD_SIZE) : 0;
         return size + alignment;
+    }
+
+    public static int getSizeWordAlignmentForFunc(Type type) {
+        if (PassByRef.ifIs(type).getTruth()) {
+            return getSizeWordAlignment(new PointerType());
+        }
+        return getSizeWordAlignment(type);
     }
 
     static int getSize(ASTNode type, BaseSizeDefiner baseSizeGetter) {

@@ -8,8 +8,8 @@ import gen.util.mem.FuncStackFrame;
 import gen.util.mem.StackFrame;
 import gen.util.mem.StackItem;
 import gen.util.mem.StructStackFrame;
-import gen.util.mem.access.AccessTypeGetter;
 import gen.util.mem.struct.StructVisitor;
+import gen.util.rules.PassByRef;
 
 import java.util.*;
 
@@ -118,10 +118,10 @@ public class MemAllocCodeGen extends CodeGen {
         Collections.reverse(params);
         int offset = 0;
         frame.setOffset(StackItem.RETURN_VAL, offset);
-        offset = TypeSizeGetter.getSizeWordAlignment(fd.type);
+        offset = TypeSizeGetter.getSizeWordAlignmentForFunc(fd.type);
         for (VarDecl param : params) {
             frame.setOffset(param, offset);
-            offset += TypeSizeGetter.getSizeWordAlignment(param.type);
+            offset += TypeSizeGetter.getSizeWordAlignmentForFunc(param.type);
         }
 
         // Set the return address.

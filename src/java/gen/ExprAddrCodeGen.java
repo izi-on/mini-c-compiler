@@ -8,6 +8,7 @@ import gen.asm.Register;
 import gen.error.UnexpectedExpressionError;
 import gen.util.emit.Emitter;
 import gen.util.mem.context.MemContext;
+import gen.util.rules.PassByRef;
 import gen.util.struct.StructUtils;
 import gen.util.value_holder.ValueHolder;
 
@@ -16,10 +17,10 @@ import gen.util.value_holder.ValueHolder;
  */
 public class ExprAddrCodeGen extends CodeGen {
 
-    private Register getAddressAtIndex(Register addr, Register index, ArrayType arrType) {
+    private Register getAddressAtIndex(Register addr, Register index, Type arrayedType) {
         Register result = Register.Virtual.create();
         Register indexOffset = Register.Virtual.create();
-        new Emitter(asmProg.getCurrentTextSection()).emitMultiplicationByImm(indexOffset, index, TypeSizeGetter.getSize(arrType.arrayedType));
+        new Emitter(asmProg.getCurrentTextSection()).emitMultiplicationByImm(indexOffset, index, TypeSizeGetter.getSize(arrayedType));
         asmProg.getCurrentTextSection().emit(OpCode.ADD, result, addr, indexOffset);
         return result;
     }
@@ -39,11 +40,18 @@ public class ExprAddrCodeGen extends CodeGen {
                         .computeIfGlobal(labelOfVar -> {
                             Register r = Register.Virtual.create();
                             ts.emit(OpCode.LA, r, labelOfVar);
-                            return new ValueHolder.OnRegister(asmProg, new IntLiteral(), r);
+                            return new ValueHolder.OnRegister(asmProg, new IntLiteral(), r); // same for references or variables
                         })
                         .computeIfLocal(offsetOfVar -> {
                             Register r = Register.Virtual.create();
                             ts.emit(OpCode.ADDIU, r, Register.Arch.fp, offsetOfVar);
+
+                            PassByRef.ifIs(v.type).then(subtype -> {
+                                if (offsetOfVar >= 0) {
+                                    ts.emit(OpCode.LW, r, r, 0);
+                                }
+                                return null;
+                            });
                             return new ValueHolder.OnRegister(asmProg, new IntLiteral(), r);
                         })
                         .getValue()
@@ -58,9 +66,19 @@ public class ExprAddrCodeGen extends CodeGen {
             }
 
             case ArrayAccessExpr arrAccess -> {
-                Register arrAddress = visit(arrAccess.array);
+                // Must behave like a pointer, so the "expression" is technically a pointer.
+                // For example: p[5] = 6; Here, p is a pointer. So, expr val for p to get address.
+                Register addr = visit(arrAccess.array);
+                if (arrAccess.array.type instanceof PointerType) { // pointer type points to actual array address beginning
+                    ts.emit(OpCode.LW, addr, addr, 0);
+                }
+                Type arrayedType = switch (arrAccess.array.type) {
+                    case ArrayType at -> at.arrayedType;
+                    case PointerType pt -> pt.pointerizedType;
+                    default -> {throw new IllegalStateException("Attempting to access from a type that cannot be an array");}
+                };
                 Register index = new ExprValCodeGen(asmProg).visit(arrAccess.index).getValRegister();
-                return getAddressAtIndex(arrAddress, index, (ArrayType) arrAccess.array.type);
+                return getAddressAtIndex(addr, index, arrayedType);
             }
 
             case ValueAtExpr v -> {
