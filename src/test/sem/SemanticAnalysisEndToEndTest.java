@@ -29,7 +29,12 @@ public class SemanticAnalysisEndToEndTest {
         Scanner scanner = new Scanner(tempFile);
         Tokeniser tokeniser = new Tokeniser(scanner);
         Parser parser = new Parser(tokeniser);
-        return parser.parse();
+        Program prog =  parser.parse();
+        if (parser.hasErrors()) {
+            System.out.println("Parser has errors");
+            throw new AssertionError();
+        }
+        return prog;
     }
 
     /**
@@ -78,7 +83,7 @@ public class SemanticAnalysisEndToEndTest {
     public void testGlobalVariableSameNameAsStructType() throws IOException {
         String input = """
             struct Baz { int x; };
-            int Baz = 5;
+            int Baz;
             int main() { return Baz; }
             """;
         int errors = runSemanticAnalysis(input);
@@ -92,10 +97,11 @@ public class SemanticAnalysisEndToEndTest {
     @Test
     public void testGlobalAndStructFieldSameName() throws IOException {
         String input = """
-            int x = 10;
+            int x;
             struct S { int x; int y; };
             int main() { 
                 struct S s; 
+                x = 10;
                 s.x = 5; 
                 return x + s.y; 
             }
@@ -302,7 +308,7 @@ public class SemanticAnalysisEndToEndTest {
     @Test
     public void testGlobalDeclaration_1() throws IOException {
         String input = """
-            int globalVar = 10;
+            int globalVar;
             int main() { return globalVar; }
             """;
         int errors = runSemanticAnalysis(input);
@@ -346,8 +352,8 @@ public class SemanticAnalysisEndToEndTest {
     @Test
     public void testGlobalShadowing_1() throws IOException {
         String input = """
-            int x = 10;
-            int foo() { int x = 5; return x; }
+            int x;
+            int foo() { int x; return x; }
             int main() { return x; }
             """;
         int errors = runSemanticAnalysis(input);
@@ -409,8 +415,8 @@ public class SemanticAnalysisEndToEndTest {
     public void testLocalShadowing_2() throws IOException {
         String input = """
             int main() {
-              int a = 5;
-              { int a = 10; return a; }
+              int a;
+              { int a; a = 10; return a; }
             }
             """;
         int errors = runSemanticAnalysis(input);
@@ -508,7 +514,7 @@ public class SemanticAnalysisEndToEndTest {
     @Test
     public void testGlobalVariableAssignment_1() throws IOException {
         String input = """
-            int x = 10;
+            int x;
             int main() { x = 20; return x; }
             """;
         int errors = runSemanticAnalysis(input);
@@ -530,7 +536,7 @@ public class SemanticAnalysisEndToEndTest {
     public void testLocalVariableAssignment_1() throws IOException {
         String input = """
             int main() {
-              int x = 5;
+              int x;
               x = 10;
               return x;
             }
@@ -544,7 +550,7 @@ public class SemanticAnalysisEndToEndTest {
         // Type mismatch in local assignment
         String input = """
             int main() {
-              int x = 5;
+              int x;
               x = 'b';
               return x;
             }
@@ -745,9 +751,9 @@ public class SemanticAnalysisEndToEndTest {
     public void testShadowing_6() throws IOException {
         // Local variable shadows an outer variable correctly.
         String input = """
-            int x = 10;
+            int x;
             int main() {
-              int x = 5;
+              int x;
               return x;
             }
             """;
@@ -760,11 +766,11 @@ public class SemanticAnalysisEndToEndTest {
         // Two nested blocks with valid shadowing.
         String input = """
             int main() {
-              int x = 1;
+              int x;
               {
-                int x = 2;
+                int x;
                 {
-                  int x = 3;
+                  int x;
                 }
               }
               return x;

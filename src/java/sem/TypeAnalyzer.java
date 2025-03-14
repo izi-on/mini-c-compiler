@@ -93,8 +93,9 @@ public class TypeAnalyzer extends BaseSemanticAnalyzer {
 
 			// --- Statements ---
 			case Block b -> {
-				for (ASTNode child : b.children())
-					visit(child);
+				withNewScope(() -> {
+					handleBlockVisit(b, this::visit);
+				});
 				yield BaseType.NONE;
 			}
 
@@ -120,7 +121,7 @@ public class TypeAnalyzer extends BaseSemanticAnalyzer {
 				scope.put(new TypeSymbol(fd.name, funcType));
 
 				withNewScope(fd.params, () -> {
-					visit(fd.block);
+					handleBlockVisit(fd.block, this::visit);
 				}, new CurrentFunctionTypeSymbol(funcType));
 				yield funcType;
 			}

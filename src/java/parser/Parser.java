@@ -79,7 +79,12 @@ public class Parser extends CompilerPass {
 
     public Program parse() {
         nextToken();
-        Program prog = parseProgram();
+        Program prog = null;
+        try {
+            prog = parseProgram();
+        } catch (Exception e) {
+            System.out.println(e);
+        };
         return prog;
     }
 
@@ -135,6 +140,7 @@ public class Parser extends CompilerPass {
         System.out.println("Parsing error: expected (" + sb + ") found (" + token + ") at " + token.position);
         incError();
         lastErrorToken = token;
+        throw new RuntimeException("Parser error");
     }
 
     // --- Grammar productions ---

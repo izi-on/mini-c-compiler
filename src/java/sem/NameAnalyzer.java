@@ -89,17 +89,12 @@ public class NameAnalyzer extends BaseSemanticAnalyzer {
 	}
 
 	public void withNewScope(List<VarDecl> params, Runnable r) {
-		super.withNewScope(() -> {
+		withNewScope(() -> {
 			for (VarDecl vd : params) {
 				scope.put(new VariableSymbol(vd.name, vd));
 			}
 			r.run();
-			checkIfFuncDeclHasDef();
 		});
-	}
-
-	private void handleBlockVisit(Block b) {
-		Stream.concat(b.vds.stream(), b.stmts.stream()).forEach(this::visit);
 	}
 
 	public void visit(ASTNode node) {
@@ -111,7 +106,7 @@ public class NameAnalyzer extends BaseSemanticAnalyzer {
 			case Block b -> {
 				// create a scope for the block
 				withNewScope(() -> {
-					handleBlockVisit(b);
+					handleBlockVisit(b, this::visit);
 				});
 			}
 
@@ -164,7 +159,7 @@ public class NameAnalyzer extends BaseSemanticAnalyzer {
 					}
 				}
 				withNewScope(fd.params ,() -> {
-					handleBlockVisit(fd.block); // if we visit the params are in a parent scope, we want same scope
+					handleBlockVisit(fd.block, this::visit); // if we visit the params are in a parent scope, we want same scope
 				});
 			}
 

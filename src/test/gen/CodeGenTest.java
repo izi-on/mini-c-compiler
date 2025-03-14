@@ -2370,4 +2370,299 @@ public class CodeGenTest {
         String output = runCode(code);
         assertEquals(expectedOutput, output, "Expressions should use the nearest variable declaration in scope.");
     }
+
+
+    @Test
+    public void testArrayGlobalRef() throws IOException, InterruptedException {
+        String code = """
+            int arr[5];
+            int foo(int arr[5]) {
+                arr[0] = 1;
+            }
+            int main() {
+                foo(arr);
+                print_i(arr[0]);
+                return 0;
+            }
+    """;
+        String expectedOutput = "1";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Expressions should use the nearest variable declaration in scope.");
+    }
+
+    @Test
+    public void testShadowingAgain() throws IOException, InterruptedException {
+        String code = """
+                struct node {
+                  int data;
+                };
+                
+                void test(int node) {
+                  struct node n;
+                  print_i(n.data);
+                }                
+                
+                int main() {
+                    test(5);
+                    return 0;
+                }
+                """;
+        String output = runCode(code);
+        assertEquals(output, "0");
+    }
+
+    @Test
+    public void testNormalArrayUsage() throws IOException, InterruptedException {
+        String code = """
+        int main() {
+            struct Point {
+                int x;
+                int y;
+            };
+            struct Point points[2];
+        }
+    """;
+        String expectedOutput = "1020304050ABC1234";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Normal array access and usage should work correctly.");
+    }
+
+    @Test
+    public void testPointerToArrayModification() throws IOException, InterruptedException {
+        String code = """
+        int main() {
+            int arr[3];
+            int* p;
+            
+            arr[0] = 10;
+            arr[1] = 20;
+            arr[2] = 30;
+            
+            p = (int*) arr;
+            *p = 100;  // Modifies arr[0]
+
+            print_i(arr[0]);
+            print_i(arr[1]);
+            print_i(arr[2]);
+
+            return 0;
+        }
+    """;
+        String expectedOutput = "1002030";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Pointer to array should correctly modify values.");
+    }
+
+    @Test
+    public void testPassArrayToFunctionCallAndModify() throws IOException, InterruptedException {
+        String code = """
+        void modifyArray(int arr[3]) {
+            arr[0] = 99;
+            arr[1] = 88;
+            arr[2] = 77;
+        }
+
+        int main() {
+            int arr[3];
+            arr[0] = 1;
+            arr[1] = 2;
+            arr[2] = 3;
+
+            modifyArray(arr);
+
+            print_i(arr[0]);
+            print_i(arr[1]);
+            print_i(arr[2]);
+
+            return 0;
+        }
+    """;
+        String expectedOutput = "998877";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Passing array to function should modify values.");
+    }
+
+    @Test
+    public void testPassPointerToArrayToFunctionAndModify() throws IOException, InterruptedException {
+        String code = """
+        void modifyArray(int* arr) {
+            arr[0] = 55;
+            arr[1] = 66;
+            arr[2] = 77;
+        }
+
+        int main() {
+            int arr[3];
+            arr[0] = 1;
+            arr[1] = 2;
+            arr[2] = 3;
+
+            modifyArray((int*) arr);
+
+            print_i(arr[0]);
+            print_i(arr[1]);
+            print_i(arr[2]);
+
+            return 0;
+        }
+    """;
+        String expectedOutput = "556677";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Passing pointer to array should modify values.");
+    }
+
+    @Test
+    public void testArrayInsideStructModification() throws IOException, InterruptedException {
+        String code = """
+        struct Container {
+            int values[3];
+            char label;
+        };
+
+        int main() {
+            struct Container c;
+            c.values[0] = 11;
+            c.values[1] = 22;
+            c.values[2] = 33;
+            c.label = 'X';
+
+            print_i(c.values[0]);
+            print_i(c.values[1]);
+            print_i(c.values[2]);
+            print_c(c.label);
+
+            return 0;
+        }
+    """;
+        String expectedOutput = "112233X";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Struct containing array should be modified correctly.");
+    }
+
+    @Test
+    public void testPointerToArrayInsideStructFunctionCall() throws IOException, InterruptedException {
+        String code = """
+        struct Container {
+            int values[3];
+        };
+
+        void modifyStruct(struct Container* c) {
+            (*c).values[0] = 99;
+            (*c).values[1] = 88;
+            (*c).values[2] = 77;
+        }
+
+        int main() {
+            struct Container c;
+            c.values[0] = 10;
+            c.values[1] = 20;
+            c.values[2] = 30;
+
+            modifyStruct(&c);
+
+            print_i(c.values[0]);
+            print_i(c.values[1]);
+            print_i(c.values[2]);
+
+            return 0;
+        }
+    """;
+        String expectedOutput = "998877";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Passing struct pointer should allow array modification.");
+    }
+
+    @Test
+    public void testPassStructByValueAndModifyArrayInside() throws IOException, InterruptedException {
+        String code = """
+        struct Data {
+            int values[3];
+        };
+
+        void modifyStruct(struct Data d) {
+            d.values[0] = 50;
+            d.values[1] = 60;
+            d.values[2] = 70;
+        }
+
+        int main() {
+            struct Data d;
+            d.values[0] = 10;
+            d.values[1] = 20;
+            d.values[2] = 30;
+
+            modifyStruct(d);
+
+            print_i(d.values[0]);
+            print_i(d.values[1]);
+            print_i(d.values[2]);
+
+            return 0;
+        }
+    """;
+        String expectedOutput = "102030";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Struct passed by value should not modify caller's array.");
+    }
+
+    @Test
+    public void testMultiDimensionalArrayUsage() throws IOException, InterruptedException {
+        String code = """
+        int main() {
+            int matrix[2][3];
+            matrix[0][0] = 1;
+            matrix[0][1] = 2;
+            matrix[0][2] = 3;
+            matrix[1][0] = 4;
+            matrix[1][1] = 5;
+            matrix[1][2] = 6;
+
+            print_i(matrix[0][0]);
+            print_i(matrix[0][1]);
+            print_i(matrix[0][2]);
+            print_i(matrix[1][0]);
+            print_i(matrix[1][1]);
+            print_i(matrix[1][2]);
+
+            return 0;
+        }
+    """;
+        String expectedOutput = "123456";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Multi-dimensional array should be accessible and modifiable.");
+    }
+
+    @Test
+    public void testMultiDimensionalArrayFunctionCall() throws IOException, InterruptedException {
+        String code = """
+        void modifyMatrix(int matrix[2][3]) {
+            matrix[0][0] = 99;
+            matrix[1][2] = 88;
+        }
+
+        int main() {
+            int matrix[2][3];
+            matrix[0][0] = 1;
+            matrix[0][1] = 2;
+            matrix[0][2] = 3;
+            matrix[1][0] = 4;
+            matrix[1][1] = 5;
+            matrix[1][2] = 6;
+
+            modifyMatrix(matrix);
+
+            print_i(matrix[0][0]);
+            print_i(matrix[0][1]);
+            print_i(matrix[0][2]);
+            print_i(matrix[1][0]);
+            print_i(matrix[1][1]);
+            print_i(matrix[1][2]);
+
+            return 0;
+        }
+    """;
+        String expectedOutput = "99234588";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Multi-dimensional array function call should modify values.");
+    }
 }
