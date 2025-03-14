@@ -840,4 +840,228 @@ public class TypeAnalysisTest {
         assertEquals(BaseType.INT, usageGlobal.type, "Global y should remain of type int.");
         assertEquals(0, ta.getNumErrors(), "No errors expected for valid multiple level shadowing.");
     }
+
+    @Test
+    public void testGlobalLocalShadowingStruct() {
+        // Declare struct type GlobalStruct with a dummy field.
+        VarDecl globalDummy = new VarDecl(BaseType.INT, "dummy");
+        StructTypeDecl globalStructDecl = new StructTypeDecl("GlobalStruct", new ArrayList<>(List.of(globalDummy)));
+
+        // Declare struct type LocalStruct with a dummy field.
+        VarDecl localDummy = new VarDecl(BaseType.INT, "dummy");
+        StructTypeDecl localStructDecl = new StructTypeDecl("LocalStruct", new ArrayList<>(List.of(localDummy)));
+
+        // Global variable x of type GlobalStruct.
+        VarDecl globalX = new VarDecl(new StructType("GlobalStruct"), "x");
+
+        // In main, declare local variable x of type LocalStruct (this shadows global x).
+        VarDecl localX = new VarDecl(new StructType("LocalStruct"), "x");
+        // Usage of x inside main: should resolve to the local declaration.
+        VarExpr usageLocal = new VarExpr("x");
+
+        // Return the local x.
+        Return ret = new Return(usageLocal);
+        Block mainBlock = new Block(new ArrayList<>(List.of(localX)), new ArrayList<>(List.of(ret)));
+
+        // Function main returns a LocalStruct.
+        FunDef mainFun = new FunDef(new StructType("LocalStruct"), "main", new ArrayList<>(), mainBlock);
+
+        // Build the program with the struct declarations, global variable, and function.
+        List<Decl> decls = new ArrayList<>();
+        decls.add(globalStructDecl);
+        decls.add(localStructDecl);
+        decls.add(globalX);
+        decls.add(mainFun);
+        Program prog = new Program(decls);
+
+        TypeAnalyzer ta = new TypeAnalyzer();
+        ta.visit(prog);
+
+        // Expect that the usage of x resolves to the local declaration of type LocalStruct.
+        assertEquals(new StructType("LocalStruct"), usageLocal.type,
+                "Local shadowing should override global x with type LocalStruct.");
+        assertEquals(0, ta.getNumErrors(), "No errors expected for valid global/local shadowing with structs.");
+    }
+
+    /**
+     * Test nested block shadowing with structs.
+     * Global variable x is of type GlobalStruct.
+     * An inner block declares a local x of type InnerStruct.
+     * Inside the inner block, x should resolve to InnerStruct;
+     * outside the inner block, x refers to the global GlobalStruct.
+     */
+    @Test
+    public void testNestedBlockShadowingStruct() {
+        // Declare struct type GlobalStruct.
+        VarDecl globalDummy = new VarDecl(BaseType.INT, "dummy");
+        StructTypeDecl globalStructDecl = new StructTypeDecl("GlobalStruct", new ArrayList<>(List.of(globalDummy)));
+
+        // Declare struct type InnerStruct.
+        VarDecl innerDummy = new VarDecl(BaseType.INT, "dummy");
+        StructTypeDecl innerStructDecl = new StructTypeDecl("InnerStruct", new ArrayList<>(List.of(innerDummy)));
+
+        // Global variable x of type GlobalStruct.
+        VarDecl globalX = new VarDecl(new StructType("GlobalStruct"), "x");
+        // Outside the inner block, usage of x.
+        VarExpr usageGlobal = new VarExpr("x");
+
+        // Inner block: declare a new x of type InnerStruct.
+        VarDecl innerLocalX = new VarDecl(new StructType("InnerStruct"), "x");
+        VarExpr usageInner = new VarExpr("x"); // This should resolve to innerLocalX.
+        ExprStmt innerStmt = new ExprStmt(usageInner);
+        Block innerBlock = new Block(new ArrayList<>(List.of(innerLocalX)), new ArrayList<>(List.of(innerStmt)));
+
+        // Main block: includes the inner block and then returns the global x.
+        Return ret = new Return(usageGlobal);
+        Block mainBlock = new Block(new ArrayList<>(), new ArrayList<>(List.of(innerBlock, ret)));
+
+        // Function main returns GlobalStruct.
+        FunDef mainFun = new FunDef(new StructType("GlobalStruct"), "main", new ArrayList<>(), mainBlock);
+
+        List<Decl> decls = new ArrayList<>();
+        decls.add(globalStructDecl);
+        decls.add(innerStructDecl);
+        decls.add(globalX);
+        decls.add(mainFun);
+        Program prog = new Program(decls);
+
+        TypeAnalyzer ta = new TypeAnalyzer();
+        ta.visit(prog);
+
+        // Inside inner block, x should be of type InnerStruct.
+        assertEquals(new StructType("InnerStruct"), usageInner.type,
+                "Inner block shadowing should yield type InnerStruct for x.");
+        // Outside inner block, x should refer to the global variable.
+        assertEquals(new StructType("GlobalStruct"), usageGlobal.type,
+                "Outside inner block, x should refer to global GlobalStruct.");
+        assertEquals(0, ta.getNumErrors(), "No errors expected for valid nested block shadowing with structs.");
+    }
+
+    /**
+     * Test that a function parameter of a struct type shadows a global variable,
+     * and that an inner block within the function can further shadow the parameter.
+     * Global variable x is of type GlobalStruct.
+     * The function parameter x is of type ParamStruct.
+     * An inner block then declares x as type InnerStruct.
+     * The function returns the parameter x (of type ParamStruct).
+     */
+    @Test
+    public void testFunctionParameterAndInnerBlockShadowingStruct() {
+        // Declare struct type GlobalStruct.
+        VarDecl globalDummy = new VarDecl(BaseType.INT, "dummy");
+        StructTypeDecl globalStructDecl = new StructTypeDecl("GlobalStruct", new ArrayList<>(List.of(globalDummy)));
+
+        // Declare struct type ParamStruct.
+        VarDecl paramDummy = new VarDecl(BaseType.INT, "dummy");
+        StructTypeDecl paramStructDecl = new StructTypeDecl("ParamStruct", new ArrayList<>(List.of(paramDummy)));
+
+        // Declare struct type InnerStruct.
+        VarDecl innerDummy = new VarDecl(BaseType.INT, "dummy");
+        StructTypeDecl innerStructDecl = new StructTypeDecl("InnerStruct", new ArrayList<>(List.of(innerDummy)));
+
+        // Global variable x of type GlobalStruct.
+        VarDecl globalX = new VarDecl(new StructType("GlobalStruct"), "x");
+
+        // Function parameter: x of type ParamStruct (shadows global x).
+        VarDecl paramX = new VarDecl(new StructType("ParamStruct"), "x");
+        VarExpr usageParam = new VarExpr("x"); // Should resolve to the parameter.
+
+        // Inner block: declare a local x of type InnerStruct.
+        VarDecl innerLocalX = new VarDecl(new StructType("InnerStruct"), "x");
+        VarExpr usageInner = new VarExpr("x"); // Should resolve to innerLocalX.
+        ExprStmt innerStmt = new ExprStmt(usageInner);
+        Block innerBlock = new Block(new ArrayList<>(List.of(innerLocalX)), new ArrayList<>(List.of(innerStmt)));
+
+        // Function body: includes the inner block, then returns the parameter.
+        Return ret = new Return(usageParam);
+        Block funcBlock = new Block(new ArrayList<>(), new ArrayList<>(List.of(innerBlock, ret)));
+
+        // Function foo returns ParamStruct.
+        FunDef fooFun = new FunDef(new StructType("ParamStruct"), "foo", new ArrayList<>(List.of(paramX)), funcBlock);
+
+        List<Decl> decls = new ArrayList<>();
+        decls.add(globalStructDecl);
+        decls.add(paramStructDecl);
+        decls.add(innerStructDecl);
+        decls.add(globalX);
+        decls.add(fooFun);
+        Program prog = new Program(decls);
+
+        TypeAnalyzer ta = new TypeAnalyzer();
+        ta.visit(prog);
+
+        // In the inner block, x should resolve to InnerStruct.
+        assertEquals(new StructType("InnerStruct"), usageInner.type,
+                "Inner block should shadow parameter x with type InnerStruct.");
+        // In the function body (outside the inner block), x should resolve to the parameter.
+        assertEquals(new StructType("ParamStruct"), usageParam.type,
+                "Function parameter x should shadow global x and yield type ParamStruct.");
+        assertEquals(0, ta.getNumErrors(), "No errors expected for valid parameter and inner block shadowing with structs.");
+    }
+
+    /**
+     * Test multiple levels of shadowing using structs.
+     * Global variable y is of type GlobalStruct.
+     * In the function body, two inner blocks shadow y:
+     *   - The first inner block declares y as type Block1Struct.
+     *   - The second inner block declares y as a pointer to Block2Struct.
+     * The function returns the global y (of type GlobalStruct).
+     */
+    @Test
+    public void testMultipleLevelsOfShadowingStruct() {
+        // Declare struct type GlobalStruct.
+        VarDecl globalDummy = new VarDecl(BaseType.INT, "dummy");
+        StructTypeDecl globalStructDecl = new StructTypeDecl("GlobalStruct", new ArrayList<>(List.of(globalDummy)));
+
+        // Declare struct type Block1Struct.
+        VarDecl block1Dummy = new VarDecl(BaseType.INT, "dummy");
+        StructTypeDecl block1StructDecl = new StructTypeDecl("Block1Struct", new ArrayList<>(List.of(block1Dummy)));
+
+        // Declare struct type Block2Struct.
+        VarDecl block2Dummy = new VarDecl(BaseType.INT, "dummy");
+        StructTypeDecl block2StructDecl = new StructTypeDecl("Block2Struct", new ArrayList<>(List.of(block2Dummy)));
+
+        // Global variable y of type GlobalStruct.
+        VarDecl globalY = new VarDecl(new StructType("GlobalStruct"), "y");
+        VarExpr usageGlobal = new VarExpr("y"); // Outside inner blocks, should be GlobalStruct.
+
+        // First inner block: shadow y with Block1Struct.
+        VarDecl block1Y = new VarDecl(new StructType("Block1Struct"), "y");
+        VarExpr usageBlock1 = new VarExpr("y"); // Resolves to block1Y.
+        ExprStmt stmtBlock1 = new ExprStmt(usageBlock1);
+        Block block1 = new Block(new ArrayList<>(List.of(block1Y)), new ArrayList<>(List.of(stmtBlock1)));
+
+        // Second inner block: shadow y with a pointer to Block2Struct.
+        VarDecl block2Y = new VarDecl(new PointerType(new StructType("Block2Struct")), "y");
+        VarExpr usageBlock2 = new VarExpr("y"); // Resolves to block2Y.
+        ExprStmt stmtBlock2 = new ExprStmt(usageBlock2);
+        Block block2 = new Block(new ArrayList<>(List.of(block2Y)), new ArrayList<>(List.of(stmtBlock2)));
+
+        // Function main returns the global y (GlobalStruct).
+        Return ret = new Return(usageGlobal);
+        Block mainBlock = new Block(new ArrayList<>(), new ArrayList<>(List.of(block1, block2, ret)));
+        FunDef mainFun = new FunDef(new StructType("GlobalStruct"), "main", new ArrayList<>(), mainBlock);
+
+        List<Decl> decls = new ArrayList<>();
+        decls.add(globalStructDecl);
+        decls.add(block1StructDecl);
+        decls.add(block2StructDecl);
+        decls.add(globalY);
+        decls.add(mainFun);
+        Program prog = new Program(decls);
+
+        TypeAnalyzer ta = new TypeAnalyzer();
+        ta.visit(prog);
+
+        // In block1, y should resolve to Block1Struct.
+        assertEquals(new StructType("Block1Struct"), usageBlock1.type,
+                "First inner block should shadow y with type Block1Struct.");
+        // In block2, y should resolve to pointer to Block2Struct.
+        assertEquals(new PointerType(new StructType("Block2Struct")), usageBlock2.type,
+                "Second inner block should shadow y with type pointer to Block2Struct.");
+        // Outside inner blocks, y remains GlobalStruct.
+        assertEquals(new StructType("GlobalStruct"), usageGlobal.type,
+                "Global y should remain of type GlobalStruct.");
+        assertEquals(0, ta.getNumErrors(), "No errors expected for valid multiple level shadowing with structs.");
+    }
 }
