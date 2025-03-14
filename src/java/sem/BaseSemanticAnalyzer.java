@@ -41,6 +41,7 @@ public abstract class BaseSemanticAnalyzer extends CompilerPass {
 	}
 	protected void error(AbstractError error) {
 		error(error.msg());
+//		throw new RuntimeException("stop");
 	}
 
 }

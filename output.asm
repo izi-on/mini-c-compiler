@@ -1,25 +1,47 @@
 .data
 # Allocated labels for virtual registers
 # Allocated labels for virtual registers
-label_146_v282:
+label_29_v0:
 .space 4
 # Allocated labels for virtual registers
-label_148_v283:
+label_31_v1:
 .space 4
 # Allocated labels for virtual registers
-label_150_v284:
+label_33_v2:
 .space 4
 # Allocated labels for virtual registers
-label_152_v285:
+label_35_v3:
 .space 4
 # Allocated labels for virtual registers
-label_154_v286:
+label_37_v4:
 .space 4
 # Allocated labels for virtual registers
-label_156_v287:
+label_39_v5:
 .space 4
 # Allocated labels for virtual registers
-label_158_v288:
+label_64_v6:
+.space 4
+label_49_v10:
+.space 4
+label_62_v16:
+.space 4
+label_53_v13:
+.space 4
+label_47_v7:
+.space 4
+label_54_v12:
+.space 4
+label_46_v8:
+.space 4
+label_50_v11:
+.space 4
+label_63_v17:
+.space 4
+label_58_v14:
+.space 4
+label_59_v15:
+.space 4
+label_57_v9:
 .space 4
 
 .text
@@ -38,7 +60,7 @@ mcmalloc:
 # Clearing entire allocated stack frame of size 8
 # Original instruction: li $t0,1
 li $t0,1
-label_131_clean_loop:
+label_2_clean_loop:
 # Original instruction: sub $t1,$sp,$t0
 sub $t1,$sp,$t0
 # Original instruction: sb $zero,0($t1)
@@ -47,9 +69,9 @@ sb $zero,0($t1)
 addi $t0,$t0,1
 # Original instruction: slti $t2,$t0,9
 slti $t2,$t0,9
-# Original instruction: bne $t2,$zero,label_131_clean_loop
-bne $t2,$zero,label_131_clean_loop
-label_132_clean_loop_end:
+# Original instruction: bne $t2,$zero,label_2_clean_loop
+bne $t2,$zero,label_2_clean_loop
+label_3_clean_loop_end:
 # Original instruction: addiu $sp,$sp,-4
 addiu $sp,$sp,-4
 # Original instruction: sw $fp,0($sp)
@@ -61,13 +83,13 @@ sw $ra,-8($fp)
 # Original instruction: addiu $sp,$fp,-8
 addiu $sp,$fp,-8
 # Original instruction: pushRegisters
-la $t0,label_146_v282
+la $t0,label_29_v0
 lw $t0,0($t0)
 addi $sp,$sp,-4
 sw $t0,0($sp)
-# Original instruction: addi v282,$sp,0
+# Original instruction: addi v0,$sp,0
 addi $t5,$sp,0
-la $t0,label_146_v282
+la $t0,label_29_v0
 sw $t5,0($t0)
 # END PROLOGUE
 # Original instruction: lw $a0,4($fp)
@@ -80,14 +102,14 @@ syscall
 sw $v0,0($fp)
 # BEGIN EPILOGUE
 mcmallocEND:
-# Original instruction: addi $sp,v282,0
-la $t5,label_146_v282
+# Original instruction: addi $sp,v0,0
+la $t5,label_29_v0
 lw $t5,0($t5)
 addi $sp,$t5,0
 # Original instruction: popRegisters
 lw $t0,0($sp)
 addi $sp,$sp,4
-la $t1,label_146_v282
+la $t1,label_29_v0
 sw $t0,0($t1)
 # Original instruction: addiu $sp,$fp,0
 addiu $sp,$fp,0
@@ -105,7 +127,7 @@ read_i:
 # Clearing entire allocated stack frame of size 8
 # Original instruction: li $t0,1
 li $t0,1
-label_133_clean_loop:
+label_6_clean_loop:
 # Original instruction: sub $t1,$sp,$t0
 sub $t1,$sp,$t0
 # Original instruction: sb $zero,0($t1)
@@ -114,9 +136,9 @@ sb $zero,0($t1)
 addi $t0,$t0,1
 # Original instruction: slti $t2,$t0,9
 slti $t2,$t0,9
-# Original instruction: bne $t2,$zero,label_133_clean_loop
-bne $t2,$zero,label_133_clean_loop
-label_134_clean_loop_end:
+# Original instruction: bne $t2,$zero,label_6_clean_loop
+bne $t2,$zero,label_6_clean_loop
+label_7_clean_loop_end:
 # Original instruction: addiu $sp,$sp,-4
 addiu $sp,$sp,-4
 # Original instruction: sw $fp,0($sp)
@@ -128,13 +150,13 @@ sw $ra,-8($fp)
 # Original instruction: addiu $sp,$fp,-8
 addiu $sp,$fp,-8
 # Original instruction: pushRegisters
-la $t0,label_148_v283
+la $t0,label_31_v1
 lw $t0,0($t0)
 addi $sp,$sp,-4
 sw $t0,0($sp)
-# Original instruction: addi v283,$sp,0
+# Original instruction: addi v1,$sp,0
 addi $t5,$sp,0
-la $t0,label_148_v283
+la $t0,label_31_v1
 sw $t5,0($t0)
 # END PROLOGUE
 # Original instruction: addi $v0,$zero,5
@@ -145,14 +167,14 @@ syscall
 sw $v0,0($fp)
 # BEGIN EPILOGUE
 read_iEND:
-# Original instruction: addi $sp,v283,0
-la $t5,label_148_v283
+# Original instruction: addi $sp,v1,0
+la $t5,label_31_v1
 lw $t5,0($t5)
 addi $sp,$t5,0
 # Original instruction: popRegisters
 lw $t0,0($sp)
 addi $sp,$sp,4
-la $t1,label_148_v283
+la $t1,label_31_v1
 sw $t0,0($t1)
 # Original instruction: addiu $sp,$fp,0
 addiu $sp,$fp,0
@@ -170,7 +192,7 @@ read_c:
 # Clearing entire allocated stack frame of size 8
 # Original instruction: li $t0,1
 li $t0,1
-label_135_clean_loop:
+label_10_clean_loop:
 # Original instruction: sub $t1,$sp,$t0
 sub $t1,$sp,$t0
 # Original instruction: sb $zero,0($t1)
@@ -179,9 +201,9 @@ sb $zero,0($t1)
 addi $t0,$t0,1
 # Original instruction: slti $t2,$t0,9
 slti $t2,$t0,9
-# Original instruction: bne $t2,$zero,label_135_clean_loop
-bne $t2,$zero,label_135_clean_loop
-label_136_clean_loop_end:
+# Original instruction: bne $t2,$zero,label_10_clean_loop
+bne $t2,$zero,label_10_clean_loop
+label_11_clean_loop_end:
 # Original instruction: addiu $sp,$sp,-4
 addiu $sp,$sp,-4
 # Original instruction: sw $fp,0($sp)
@@ -193,13 +215,13 @@ sw $ra,-8($fp)
 # Original instruction: addiu $sp,$fp,-8
 addiu $sp,$fp,-8
 # Original instruction: pushRegisters
-la $t0,label_150_v284
+la $t0,label_33_v2
 lw $t0,0($t0)
 addi $sp,$sp,-4
 sw $t0,0($sp)
-# Original instruction: addi v284,$sp,0
+# Original instruction: addi v2,$sp,0
 addi $t5,$sp,0
-la $t0,label_150_v284
+la $t0,label_33_v2
 sw $t5,0($t0)
 # END PROLOGUE
 # Original instruction: addi $v0,$zero,12
@@ -210,14 +232,14 @@ syscall
 sw $v0,0($fp)
 # BEGIN EPILOGUE
 read_cEND:
-# Original instruction: addi $sp,v284,0
-la $t5,label_150_v284
+# Original instruction: addi $sp,v2,0
+la $t5,label_33_v2
 lw $t5,0($t5)
 addi $sp,$t5,0
 # Original instruction: popRegisters
 lw $t0,0($sp)
 addi $sp,$sp,4
-la $t1,label_150_v284
+la $t1,label_33_v2
 sw $t0,0($t1)
 # Original instruction: addiu $sp,$fp,0
 addiu $sp,$fp,0
@@ -235,7 +257,7 @@ print_c:
 # Clearing entire allocated stack frame of size 8
 # Original instruction: li $t0,1
 li $t0,1
-label_137_clean_loop:
+label_14_clean_loop:
 # Original instruction: sub $t1,$sp,$t0
 sub $t1,$sp,$t0
 # Original instruction: sb $zero,0($t1)
@@ -244,9 +266,9 @@ sb $zero,0($t1)
 addi $t0,$t0,1
 # Original instruction: slti $t2,$t0,9
 slti $t2,$t0,9
-# Original instruction: bne $t2,$zero,label_137_clean_loop
-bne $t2,$zero,label_137_clean_loop
-label_138_clean_loop_end:
+# Original instruction: bne $t2,$zero,label_14_clean_loop
+bne $t2,$zero,label_14_clean_loop
+label_15_clean_loop_end:
 # Original instruction: addiu $sp,$sp,-4
 addiu $sp,$sp,-4
 # Original instruction: sw $fp,0($sp)
@@ -258,13 +280,13 @@ sw $ra,-8($fp)
 # Original instruction: addiu $sp,$fp,-8
 addiu $sp,$fp,-8
 # Original instruction: pushRegisters
-la $t0,label_152_v285
+la $t0,label_35_v3
 lw $t0,0($t0)
 addi $sp,$sp,-4
 sw $t0,0($sp)
-# Original instruction: addi v285,$sp,0
+# Original instruction: addi v3,$sp,0
 addi $t5,$sp,0
-la $t0,label_152_v285
+la $t0,label_35_v3
 sw $t5,0($t0)
 # END PROLOGUE
 # Original instruction: lb $a0,0($fp)
@@ -275,14 +297,14 @@ addi $v0,$zero,11
 syscall
 # BEGIN EPILOGUE
 print_cEND:
-# Original instruction: addi $sp,v285,0
-la $t5,label_152_v285
+# Original instruction: addi $sp,v3,0
+la $t5,label_35_v3
 lw $t5,0($t5)
 addi $sp,$t5,0
 # Original instruction: popRegisters
 lw $t0,0($sp)
 addi $sp,$sp,4
-la $t1,label_152_v285
+la $t1,label_35_v3
 sw $t0,0($t1)
 # Original instruction: addiu $sp,$fp,0
 addiu $sp,$fp,0
@@ -300,7 +322,7 @@ print_i:
 # Clearing entire allocated stack frame of size 8
 # Original instruction: li $t0,1
 li $t0,1
-label_139_clean_loop:
+label_18_clean_loop:
 # Original instruction: sub $t1,$sp,$t0
 sub $t1,$sp,$t0
 # Original instruction: sb $zero,0($t1)
@@ -309,9 +331,9 @@ sb $zero,0($t1)
 addi $t0,$t0,1
 # Original instruction: slti $t2,$t0,9
 slti $t2,$t0,9
-# Original instruction: bne $t2,$zero,label_139_clean_loop
-bne $t2,$zero,label_139_clean_loop
-label_140_clean_loop_end:
+# Original instruction: bne $t2,$zero,label_18_clean_loop
+bne $t2,$zero,label_18_clean_loop
+label_19_clean_loop_end:
 # Original instruction: addiu $sp,$sp,-4
 addiu $sp,$sp,-4
 # Original instruction: sw $fp,0($sp)
@@ -323,13 +345,13 @@ sw $ra,-8($fp)
 # Original instruction: addiu $sp,$fp,-8
 addiu $sp,$fp,-8
 # Original instruction: pushRegisters
-la $t0,label_154_v286
+la $t0,label_37_v4
 lw $t0,0($t0)
 addi $sp,$sp,-4
 sw $t0,0($sp)
-# Original instruction: addi v286,$sp,0
+# Original instruction: addi v4,$sp,0
 addi $t5,$sp,0
-la $t0,label_154_v286
+la $t0,label_37_v4
 sw $t5,0($t0)
 # END PROLOGUE
 # Original instruction: lw $a0,0($fp)
@@ -340,14 +362,14 @@ addi $v0,$zero,1
 syscall
 # BEGIN EPILOGUE
 print_iEND:
-# Original instruction: addi $sp,v286,0
-la $t5,label_154_v286
+# Original instruction: addi $sp,v4,0
+la $t5,label_37_v4
 lw $t5,0($t5)
 addi $sp,$t5,0
 # Original instruction: popRegisters
 lw $t0,0($sp)
 addi $sp,$sp,4
-la $t1,label_154_v286
+la $t1,label_37_v4
 sw $t0,0($t1)
 # Original instruction: addiu $sp,$fp,0
 addiu $sp,$fp,0
@@ -365,7 +387,7 @@ print_s:
 # Clearing entire allocated stack frame of size 8
 # Original instruction: li $t0,1
 li $t0,1
-label_141_clean_loop:
+label_22_clean_loop:
 # Original instruction: sub $t1,$sp,$t0
 sub $t1,$sp,$t0
 # Original instruction: sb $zero,0($t1)
@@ -374,9 +396,9 @@ sb $zero,0($t1)
 addi $t0,$t0,1
 # Original instruction: slti $t2,$t0,9
 slti $t2,$t0,9
-# Original instruction: bne $t2,$zero,label_141_clean_loop
-bne $t2,$zero,label_141_clean_loop
-label_142_clean_loop_end:
+# Original instruction: bne $t2,$zero,label_22_clean_loop
+bne $t2,$zero,label_22_clean_loop
+label_23_clean_loop_end:
 # Original instruction: addiu $sp,$sp,-4
 addiu $sp,$sp,-4
 # Original instruction: sw $fp,0($sp)
@@ -388,13 +410,13 @@ sw $ra,-8($fp)
 # Original instruction: addiu $sp,$fp,-8
 addiu $sp,$fp,-8
 # Original instruction: pushRegisters
-la $t0,label_156_v287
+la $t0,label_39_v5
 lw $t0,0($t0)
 addi $sp,$sp,-4
 sw $t0,0($sp)
-# Original instruction: addi v287,$sp,0
+# Original instruction: addi v5,$sp,0
 addi $t5,$sp,0
-la $t0,label_156_v287
+la $t0,label_39_v5
 sw $t5,0($t0)
 # END PROLOGUE
 # Original instruction: lw $a0,0($fp)
@@ -405,14 +427,14 @@ addi $v0,$zero,4
 syscall
 # BEGIN EPILOGUE
 print_sEND:
-# Original instruction: addi $sp,v287,0
-la $t5,label_156_v287
+# Original instruction: addi $sp,v5,0
+la $t5,label_39_v5
 lw $t5,0($t5)
 addi $sp,$t5,0
 # Original instruction: popRegisters
 lw $t0,0($sp)
 addi $sp,$sp,4
-la $t1,label_156_v287
+la $t1,label_39_v5
 sw $t0,0($t1)
 # Original instruction: addiu $sp,$fp,0
 addiu $sp,$fp,0
@@ -427,21 +449,21 @@ jr $ra
 .text
 # BEGIN PROLOGUE
 main:
-# Clearing entire allocated stack frame of size 24
+# Clearing entire allocated stack frame of size 8
 # Original instruction: li $t0,1
 li $t0,1
-label_143_clean_loop:
+label_25_clean_loop:
 # Original instruction: sub $t1,$sp,$t0
 sub $t1,$sp,$t0
 # Original instruction: sb $zero,0($t1)
 sb $zero,0($t1)
 # Original instruction: addi $t0,$t0,1
 addi $t0,$t0,1
-# Original instruction: slti $t2,$t0,25
-slti $t2,$t0,25
-# Original instruction: bne $t2,$zero,label_143_clean_loop
-bne $t2,$zero,label_143_clean_loop
-label_144_clean_loop_end:
+# Original instruction: slti $t2,$t0,9
+slti $t2,$t0,9
+# Original instruction: bne $t2,$zero,label_25_clean_loop
+bne $t2,$zero,label_25_clean_loop
+label_26_clean_loop_end:
 # Original instruction: addiu $sp,$sp,-4
 addiu $sp,$sp,-4
 # Original instruction: sw $fp,0($sp)
@@ -450,28 +472,207 @@ sw $fp,0($sp)
 addiu $fp,$sp,4
 # Original instruction: sw $ra,-8($fp)
 sw $ra,-8($fp)
-# Original instruction: addiu $sp,$fp,-24
-addiu $sp,$fp,-24
+# Original instruction: addiu $sp,$fp,-8
+addiu $sp,$fp,-8
 # Original instruction: pushRegisters
-la $t0,label_158_v288
+la $t0,label_64_v6
 lw $t0,0($t0)
 addi $sp,$sp,-4
 sw $t0,0($sp)
-# Original instruction: addi v288,$sp,0
+la $t0,label_49_v10
+lw $t0,0($t0)
+addi $sp,$sp,-4
+sw $t0,0($sp)
+la $t0,label_62_v16
+lw $t0,0($t0)
+addi $sp,$sp,-4
+sw $t0,0($sp)
+la $t0,label_53_v13
+lw $t0,0($t0)
+addi $sp,$sp,-4
+sw $t0,0($sp)
+la $t0,label_47_v7
+lw $t0,0($t0)
+addi $sp,$sp,-4
+sw $t0,0($sp)
+la $t0,label_54_v12
+lw $t0,0($t0)
+addi $sp,$sp,-4
+sw $t0,0($sp)
+la $t0,label_46_v8
+lw $t0,0($t0)
+addi $sp,$sp,-4
+sw $t0,0($sp)
+la $t0,label_50_v11
+lw $t0,0($t0)
+addi $sp,$sp,-4
+sw $t0,0($sp)
+la $t0,label_63_v17
+lw $t0,0($t0)
+addi $sp,$sp,-4
+sw $t0,0($sp)
+la $t0,label_58_v14
+lw $t0,0($t0)
+addi $sp,$sp,-4
+sw $t0,0($sp)
+la $t0,label_59_v15
+lw $t0,0($t0)
+addi $sp,$sp,-4
+sw $t0,0($sp)
+la $t0,label_57_v9
+lw $t0,0($t0)
+addi $sp,$sp,-4
+sw $t0,0($sp)
+# Original instruction: addi v6,$sp,0
 addi $t5,$sp,0
-la $t0,label_158_v288
+la $t0,label_64_v6
 sw $t5,0($t0)
 # END PROLOGUE
+# BEGIN FUNCALL EXPR FOR print_i
+# LOADING ARG: INT
+# GETTING  VALUE
+# Original instruction: addi v7,$zero,42
+addi $t5,$zero,42
+la $t0,label_47_v7
+sw $t5,0($t0)
+# Original instruction: addi v8,$zero,43
+addi $t5,$zero,43
+la $t0,label_46_v8
+sw $t5,0($t0)
+# Original instruction: slt v10,v7,v8
+la $t5,label_47_v7
+lw $t5,0($t5)
+la $t4,label_46_v8
+lw $t4,0($t4)
+slt $t3,$t5,$t4
+la $t0,label_49_v10
+sw $t3,0($t0)
+# Original instruction: slt v11,v8,v7
+la $t5,label_46_v8
+lw $t5,0($t5)
+la $t4,label_47_v7
+lw $t4,0($t4)
+slt $t3,$t5,$t4
+la $t0,label_50_v11
+sw $t3,0($t0)
+# Original instruction: or v12,v10,v11
+la $t5,label_49_v10
+lw $t5,0($t5)
+la $t4,label_50_v11
+lw $t4,0($t4)
+or $t3,$t5,$t4
+la $t0,label_54_v12
+sw $t3,0($t0)
+# Original instruction: addi v13,$zero,1
+addi $t5,$zero,1
+la $t0,label_53_v13
+sw $t5,0($t0)
+# Original instruction: sub v9,v13,v12
+la $t5,label_53_v13
+lw $t5,0($t5)
+la $t4,label_54_v12
+lw $t4,0($t4)
+sub $t3,$t5,$t4
+la $t0,label_57_v9
+sw $t3,0($t0)
+# VALUE CAUGHT
+# Original instruction: addiu $sp,$sp,-4
+addiu $sp,$sp,-4
+# Original instruction: addi v14,$sp,0
+addi $t5,$sp,0
+la $t0,label_58_v14
+sw $t5,0($t0)
+# Loading from v9 from reg into v14
+# Original instruction: sw v9,0(v14)
+la $t5,label_57_v9
+lw $t5,0($t5)
+la $t4,label_58_v14
+lw $t4,0($t4)
+sw $t5,0($t4)
+# SPACE FOR RETURN VALUE
+# Original instruction: addiu $sp,$sp,0
+addiu $sp,$sp,0
+# GO TO FUNCTION
+# Original instruction: jal print_i
+jal print_i
+# BACK FROM FUNCTION
+# Original instruction: addi v15,$sp,0
+addi $t5,$sp,0
+la $t0,label_59_v15
+sw $t5,0($t0)
+# Return statement start
+# Original instruction: addi v16,$zero,0
+addi $t5,$zero,0
+la $t0,label_62_v16
+sw $t5,0($t0)
+# Original instruction: addiu v17,$fp,0
+addiu $t5,$fp,0
+la $t0,label_63_v17
+sw $t5,0($t0)
+# Loading from v16 from reg into v17
+# Original instruction: sw v16,0(v17)
+la $t5,label_62_v16
+lw $t5,0($t5)
+la $t4,label_63_v17
+lw $t4,0($t4)
+sw $t5,0($t4)
+# Original instruction: jal mainEND
+jal mainEND
+# Return statement end
 # BEGIN EPILOGUE
 mainEND:
-# Original instruction: addi $sp,v288,0
-la $t5,label_158_v288
+# Original instruction: addi $sp,v6,0
+la $t5,label_64_v6
 lw $t5,0($t5)
 addi $sp,$t5,0
 # Original instruction: popRegisters
 lw $t0,0($sp)
 addi $sp,$sp,4
-la $t1,label_158_v288
+la $t1,label_57_v9
+sw $t0,0($t1)
+lw $t0,0($sp)
+addi $sp,$sp,4
+la $t1,label_59_v15
+sw $t0,0($t1)
+lw $t0,0($sp)
+addi $sp,$sp,4
+la $t1,label_58_v14
+sw $t0,0($t1)
+lw $t0,0($sp)
+addi $sp,$sp,4
+la $t1,label_63_v17
+sw $t0,0($t1)
+lw $t0,0($sp)
+addi $sp,$sp,4
+la $t1,label_50_v11
+sw $t0,0($t1)
+lw $t0,0($sp)
+addi $sp,$sp,4
+la $t1,label_46_v8
+sw $t0,0($t1)
+lw $t0,0($sp)
+addi $sp,$sp,4
+la $t1,label_54_v12
+sw $t0,0($t1)
+lw $t0,0($sp)
+addi $sp,$sp,4
+la $t1,label_47_v7
+sw $t0,0($t1)
+lw $t0,0($sp)
+addi $sp,$sp,4
+la $t1,label_53_v13
+sw $t0,0($t1)
+lw $t0,0($sp)
+addi $sp,$sp,4
+la $t1,label_62_v16
+sw $t0,0($t1)
+lw $t0,0($sp)
+addi $sp,$sp,4
+la $t1,label_49_v10
+sw $t0,0($t1)
+lw $t0,0($sp)
+addi $sp,$sp,4
+la $t1,label_64_v6
 sw $t0,0($t1)
 # Original instruction: addiu $sp,$fp,0
 addiu $sp,$fp,0

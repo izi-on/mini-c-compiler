@@ -672,4 +672,172 @@ public class TypeAnalysisTest {
         assertTrue( ta.getNumErrors() > 0, "Duplicate struct definitions should cause a name analysis error");
     }
 
+    /**
+     * Test that a local variable shadows a global variable.
+     * Global variable x is declared as int, but the local x is declared as char.
+     * The usage of x inside main should resolve to the local declaration.
+     * Function main returns a char to match the type of the local x.
+     */
+    @Test
+    public void testGlobalLocalShadowing() {
+        // Global variable: int x;
+        VarDecl globalX = new VarDecl(BaseType.INT, "x");
+
+        // In main, declare a local variable x of type char (shadows global x).
+        VarDecl localX = new VarDecl(BaseType.CHAR, "x");
+        VarExpr usageLocal = new VarExpr("x"); // Should resolve to local x (char)
+
+        // Function returns the local x.
+        Return ret = new Return(usageLocal);
+        // Block that declares the local variable and then returns it.
+        Block mainBlock = new Block(new ArrayList<>(List.of(localX)), new ArrayList<>(List.of(ret)));
+
+        // Function main returns char.
+        FunDef mainFun = new FunDef(BaseType.CHAR, "main", new ArrayList<>(), mainBlock);
+        List<Decl> decls = new ArrayList<>();
+        decls.add(globalX);
+        decls.add(mainFun);
+        Program prog = new Program(decls);
+
+        TypeAnalyzer ta = new TypeAnalyzer();
+        ta.visit(prog);
+
+        // The usage of x should be resolved to the local declaration (char).
+        assertEquals(BaseType.CHAR, usageLocal.type, "Local shadowing should override global x with type char.");
+        assertEquals(0, ta.getNumErrors(), "No errors expected for valid global/local shadowing.");
+    }
+
+    /**
+     * Test nested block shadowing.
+     * Global x is of type int.
+     * In an inner block, a new x (of type char) is declared.
+     * A VarExpr inside the inner block should resolve to the inner x,
+     * while a VarExpr outside the inner block (but in the same function) resolves to the global x.
+     * The function returns the global x so its type is int.
+     */
+    @Test
+    public void testNestedBlockShadowing() {
+        // Global variable: int x;
+        VarDecl globalX = new VarDecl(BaseType.INT, "x");
+        VarExpr usageGlobal = new VarExpr("x"); // Outside inner block, should be int.
+
+        // Inner block: declare a local x of type char.
+        VarDecl innerLocalX = new VarDecl(BaseType.CHAR, "x");
+        VarExpr usageInner = new VarExpr("x"); // Should resolve to innerLocalX (char)
+        // Use inner x in an expression statement.
+        ExprStmt innerExprStmt = new ExprStmt(usageInner);
+        Block innerBlock = new Block(new ArrayList<>(List.of(innerLocalX)), new ArrayList<>(List.of(innerExprStmt)));
+
+        // Function main: includes the inner block as a statement, then returns usageGlobal.
+        Return outerRet = new Return(usageGlobal);
+        Block outerBlock = new Block(new ArrayList<>(), new ArrayList<>(List.of(innerBlock, outerRet)));
+        // Function returns int.
+        FunDef mainFun = new FunDef(BaseType.INT, "main", new ArrayList<>(), outerBlock);
+
+        List<Decl> decls = new ArrayList<>();
+        decls.add(globalX);
+        decls.add(mainFun);
+        Program prog = new Program(decls);
+
+        TypeAnalyzer ta = new TypeAnalyzer();
+        ta.visit(prog);
+
+        // Inside the inner block, x should be of type char.
+        assertEquals(BaseType.CHAR, usageInner.type, "Inner block shadowing should yield type char for x.");
+        // Outside the inner block, x should resolve to the global variable (int).
+        assertEquals(BaseType.INT, usageGlobal.type, "Outside inner block, x should refer to global int.");
+        assertEquals(0, ta.getNumErrors(), "No errors expected for valid nested block shadowing.");
+    }
+
+    /**
+     * Test that a function parameter shadows a global variable,
+     * and that an inner block within the function can further shadow the parameter.
+     * Global x is int, but the function parameter x is char.
+     * Then an inner block declares x as int.
+     * The function returns the parameter x (char), so all return types match.
+     */
+    @Test
+    public void testFunctionParameterAndInnerBlockShadowing() {
+        // Global variable: int x;
+        VarDecl globalX = new VarDecl(BaseType.INT, "x");
+
+        // Function parameter: char x shadows global x.
+        VarDecl paramX = new VarDecl(BaseType.CHAR, "x");
+        VarExpr usageParam = new VarExpr("x"); // In function body, should resolve to parameter x (char)
+
+        // Inner block inside the function: declare local x of type int.
+        VarDecl innerLocalX = new VarDecl(BaseType.INT, "x");
+        VarExpr usageInner = new VarExpr("x"); // Should resolve to innerLocalX (int)
+        ExprStmt innerExpr = new ExprStmt(usageInner);
+        Block innerBlock = new Block(new ArrayList<>(List.of(innerLocalX)), new ArrayList<>(List.of(innerExpr)));
+
+        // Function body: includes the inner block, then returns usageParam.
+        Return bodyRet = new Return(usageParam);
+        Block funcBlock = new Block(new ArrayList<>(), new ArrayList<>(List.of(innerBlock, bodyRet)));
+
+        // Function returns char (matching the parameter type).
+        FunDef fooFun = new FunDef(BaseType.CHAR, "foo", new ArrayList<>(List.of(paramX)), funcBlock);
+        List<Decl> decls = new ArrayList<>();
+        decls.add(globalX);
+        decls.add(fooFun);
+        Program prog = new Program(decls);
+
+        TypeAnalyzer ta = new TypeAnalyzer();
+        ta.visit(prog);
+
+        // In the inner block, x should resolve to int.
+        assertEquals(BaseType.INT, usageInner.type, "Inner block should shadow parameter x with type int.");
+        // In the function body (outside the inner block), x should resolve to the parameter (char).
+        assertEquals(BaseType.CHAR, usageParam.type, "Function parameter x should shadow global x and yield type char.");
+        assertEquals(0, ta.getNumErrors(), "No errors expected for valid parameter and inner block shadowing.");
+    }
+
+    /**
+     * Test multiple levels of shadowing within a single function.
+     * Global y is int.
+     * In the function body, two inner blocks each shadow y:
+     *   - The first inner block declares y as char.
+     *   - The second inner block declares y as pointer to int.
+     * The function returns the global y (int), ensuring that the differing types do not conflict
+     * with the overall strict typing.
+     */
+    @Test
+    public void testMultipleLevelsOfShadowing() {
+        // Global variable: int y;
+        VarDecl globalY = new VarDecl(BaseType.INT, "y");
+        VarExpr usageGlobal = new VarExpr("y"); // Outside inner blocks, should be int.
+
+        // First inner block: shadow y with char.
+        VarDecl block1Y = new VarDecl(BaseType.CHAR, "y");
+        VarExpr usageBlock1 = new VarExpr("y"); // Should resolve to block1Y (char)
+        ExprStmt stmtBlock1 = new ExprStmt(usageBlock1);
+        Block block1 = new Block(new ArrayList<>(List.of(block1Y)), new ArrayList<>(List.of(stmtBlock1)));
+
+        // Second inner block: shadow y with pointer to int.
+        VarDecl block2Y = new VarDecl(new PointerType(BaseType.INT), "y");
+        VarExpr usageBlock2 = new VarExpr("y"); // Should resolve to block2Y (pointer to int)
+        ExprStmt stmtBlock2 = new ExprStmt(usageBlock2);
+        Block block2 = new Block(new ArrayList<>(List.of(block2Y)), new ArrayList<>(List.of(stmtBlock2)));
+
+        // Function main: returns usageGlobal, so function type is int.
+        Return retGlobal = new Return(usageGlobal);
+        Block funcBlock = new Block(new ArrayList<>(), new ArrayList<>(List.of(block1, block2, retGlobal)));
+        FunDef mainFun = new FunDef(BaseType.INT, "main", new ArrayList<>(), funcBlock);
+
+        List<Decl> decls = new ArrayList<>();
+        decls.add(globalY);
+        decls.add(mainFun);
+        Program prog = new Program(decls);
+
+        TypeAnalyzer ta = new TypeAnalyzer();
+        ta.visit(prog);
+
+        // In block1, y should be char.
+        assertEquals(BaseType.CHAR, usageBlock1.type, "First inner block should shadow y with type char.");
+        // In block2, y should be pointer to int.
+        assertEquals(new PointerType(BaseType.INT), usageBlock2.type, "Second inner block should shadow y with type pointer to int.");
+        // Outside the inner blocks, y should refer to the global variable (int).
+        assertEquals(BaseType.INT, usageGlobal.type, "Global y should remain of type int.");
+        assertEquals(0, ta.getNumErrors(), "No errors expected for valid multiple level shadowing.");
+    }
 }

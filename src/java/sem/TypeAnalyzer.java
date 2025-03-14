@@ -396,7 +396,7 @@ public class TypeAnalyzer extends BaseSemanticAnalyzer {
 				r.expr.ifPresent(e -> {
 					Type exprType = visit(e);
 					if (!returnType.equals(exprType)) {
-						error(new TypeMismatchErr(returnType, exprType));
+						error("Expected return type " + returnType + " but got " + exprType);
 					}
 				});
 				yield BaseType.NONE;
