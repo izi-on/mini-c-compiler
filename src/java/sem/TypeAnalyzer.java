@@ -128,10 +128,7 @@ public class TypeAnalyzer extends BaseSemanticAnalyzer {
 
 			// --- Program ---
 			case Program p -> {
-				// Visit all declarations (which will, in turn, add the function, variable, and struct types to the symbol table)
-				for (Decl d : p.decls) {
-					visit(d);
-				}
+				p.decls.forEach(this::visit); // do not run this withNewScope, because StructDeclLinker wont be able to find the strcut declarations otherwise
 				yield BaseType.NONE;
 			}
 
