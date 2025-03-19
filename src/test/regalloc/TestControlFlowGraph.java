@@ -71,6 +71,36 @@ public class TestControlFlowGraph {
 
     public static void main(String[] args) throws IOException {
         TestControlFlowGraph test = new TestControlFlowGraph();
-        test.runCode("int main() { return 0; }");
+        test.runCode(test3);
     }
+
+    public static String test1 = """
+            int main() { return 0; }
+        """;
+
+    public static String test2 = """
+            int main() {
+                int x;
+                if (x) {
+                    x = 0;
+                } else {
+                    x = 1;
+                }
+                return x;
+            }
+            """;
+
+    public static String test3 = """
+            int main() {
+                int x;
+                if (1) {
+                    print_c('a');
+                } else {
+                    while (1) {
+                        x = 0;
+                    }
+                }
+                return 0;
+            }
+            """;
 }

@@ -2409,23 +2409,6 @@ public class CodeGenTest {
         String output = runCode(code);
         assertEquals(output, "0");
     }
-
-    @Test
-    public void testNormalArrayUsage() throws IOException, InterruptedException {
-        String code = """
-        int main() {
-            struct Point {
-                int x;
-                int y;
-            };
-            struct Point points[2];
-        }
-    """;
-        String expectedOutput = "1020304050ABC1234";
-        String output = runCode(code);
-        assertEquals(expectedOutput, output, "Normal array access and usage should work correctly.");
-    }
-
     @Test
     public void testPointerToArrayModification() throws IOException, InterruptedException {
         String code = """

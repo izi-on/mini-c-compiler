@@ -3,6 +3,7 @@ package gen.util.value_holder;
 import ast.*;
 import gen.TypeSizeGetter;
 import gen.asm.AssemblyProgram;
+import gen.asm.Label;
 import gen.asm.OpCode;
 import gen.asm.Register;
 import gen.util.mem.access.AccessTypeGetter;
@@ -79,18 +80,55 @@ public abstract class ValueHolder {
 
         @Override
         public void loadToTargetAddr() {
-            System.out.println("Loading from mem to target addr type: " + nodeType + " of size " + TypeSizeGetter.getSize(nodeType));
+            System.out.println("Loading from mem to target addr type: " + nodeType
+                    + " of size " + TypeSizeGetter.getSize(nodeType));
             AssemblyProgram.TextSection ts = asmProg.getCurrentTextSection();
-            ts.emit("");
+            ts.emit("");  // empty line for readability
             ts.emit("Loading from " + srcAddr + " from stack into " + targetAddr);
-            Register r = Register.Virtual.create();
-            for (int i = 0; i < TypeSizeGetter.getSize(nodeType); i++) { // TODO: use an emitted loop instead
-                ts.emit(OpCode.LB, r, srcAddr, i);
-                ts.emit(OpCode.SB, r, targetAddr, i);
-            }
+
+            int size = TypeSizeGetter.getSize(nodeType); // total number of bytes to copy
+
+            // Allocate registers for:
+            // total size, loop counter, temporary registers for computing source and target addresses, and for the byte value.
+            Register totalReg   = Register.Virtual.create(); // will hold the constant size
+            Register counterReg = Register.Virtual.create(); // loop counter i
+            Register srcTmp     = Register.Virtual.create(); // temporary to compute (srcAddr + i)
+            Register targetTmp  = Register.Virtual.create(); // temporary to compute (targetAddr + i)
+            Register byteReg    = Register.Virtual.create(); // register to hold the loaded byte
+
+            // Create unique labels for the loop start and exit.
+            Label loopLabel = Label.create("mem_copy_loop");
+            Label endLabel  = Label.create("mem_copy_end");
+
+            // Initialize total size and loop counter.
+            ts.emit(OpCode.LI, totalReg, size);       // totalReg = size
+            ts.emit(OpCode.LI, counterReg, 0);          // counterReg = 0
+
+            // Emit the loop label.
+            ts.emit(loopLabel);
+
+            // If counterReg equals totalReg then branch to endLabel.
+            ts.emit(OpCode.BEQ, counterReg, totalReg, endLabel);
+
+            // Compute source address: srcTmp = srcAddr + counterReg.
+            ts.emit(OpCode.ADD, srcTmp, srcAddr, counterReg);
+            // Load one byte from memory at srcTmp into byteReg.
+            ts.emit(OpCode.LB, byteReg, srcTmp, 0);
+
+            // Compute target address: targetTmp = targetAddr + counterReg.
+            ts.emit(OpCode.ADD, targetTmp, targetAddr, counterReg);
+            // Store the byte from byteReg into memory at targetTmp.
+            ts.emit(OpCode.SB, byteReg, targetTmp, 0);
+
+            // Increment the loop counter by 1.
+            ts.emit(OpCode.ADDI, counterReg, counterReg, 1);
+            // Jump back to the start of the loop.
+            ts.emit(OpCode.J, loopLabel);
+
+            // Emit the loop exit label.
+            ts.emit(endLabel);
             ts.emit("");
         }
-
         @Override
         public Register getValRegister() {
             // honestly just prevent a giant headache with this:
