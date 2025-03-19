@@ -91,7 +91,6 @@ public class CodeGenTest {
     @BeforeEach
     public void resetState() {
         MemContext.reset();
-        NaiveRegAlloc.reset();
     }
 
     @Test

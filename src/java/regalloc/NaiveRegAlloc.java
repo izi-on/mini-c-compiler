@@ -14,11 +14,6 @@ public final class NaiveRegAlloc implements AssemblyPass {
 
     private NaiveRegAlloc() { }
 
-    public static void reset() {
-        INSTANCE = new NaiveRegAlloc();
-    }
-
-
     private static Map<Register.Virtual, Label>  collectVirtualRegisters(AssemblyProgram.TextSection section) {
         final Map<Register.Virtual, Label> vrMap = new HashMap<>();
 
@@ -124,7 +119,7 @@ public final class NaiveRegAlloc implements AssemblyPass {
                                     newSection.emit(OpCode.LW, Register.Arch.t0, Register.Arch.t0, 0);
 
                                     // push $t0 onto stack
-                                    newSection.emit(OpCode.ADDI, Register.Arch.sp, Register.Arch.sp, -4);
+                                    newSection.emit(OpCode.ADDIU, Register.Arch.sp, Register.Arch.sp, -4);
                                     newSection.emit(OpCode.SW, Register.Arch.t0, Register.Arch.sp, 0);
                                 }
                             } else if (insn == Instruction.Nullary.popRegisters) {
@@ -132,7 +127,7 @@ public final class NaiveRegAlloc implements AssemblyPass {
                                 for (Label l : reverseVrLabels) {
                                     // pop from stack into $t0
                                     newSection.emit(OpCode.LW, Register.Arch.t0, Register.Arch.sp, 0);
-                                    newSection.emit(OpCode.ADDI, Register.Arch.sp, Register.Arch.sp, 4);
+                                    newSection.emit(OpCode.ADDIU, Register.Arch.sp, Register.Arch.sp, 4);
 
                                     // store content of $t0 in memory at label
                                     newSection.emit(OpCode.LA, Register.Arch.t1, l);
@@ -153,7 +148,7 @@ public final class NaiveRegAlloc implements AssemblyPass {
     /**
      * The singleton instance of {@link NaiveRegAlloc}.
      */
-    public static NaiveRegAlloc INSTANCE = new NaiveRegAlloc();
+    public static final NaiveRegAlloc INSTANCE = new NaiveRegAlloc();
 
     @Override
     public AssemblyProgram apply(AssemblyProgram program) {
