@@ -12,6 +12,7 @@ import org.junit.Ignore;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import parser.Parser;
+import regalloc.GraphColouringRegAlloc;
 import regalloc.NaiveRegAlloc;
 import sem.SemanticAnalyzer;
 
@@ -60,7 +61,7 @@ public class CodeGenTest {
 
             // Step 3: Code Generation
             // Here we use our default register allocator, NaiveRegAlloc.
-            CodeGenerator codegen = new CodeGenerator(NaiveRegAlloc.INSTANCE);
+            CodeGenerator codegen = new CodeGenerator(GraphColouringRegAlloc.INSTANCE);
             Path tempOutput = Files.createTempFile("output", ".asm");
             codegen.emitProgram(prog, tempOutput.toFile());
             System.out.println("Code generated successfully in " + tempOutput.toAbsolutePath());
@@ -2233,7 +2234,7 @@ public class CodeGenTest {
             init();
             print_i(x); // prints global x: 5
             print_c(',');
-            f(15);      // prints 15 (function parameter)
+            f(15);      // prints 15 (function paraeter)
             print_c(',');
             print_i(x); // prints global x again: 5
             return 0;
@@ -2407,7 +2408,7 @@ public class CodeGenTest {
                 }
                 """;
         String output = runCode(code);
-        assertEquals(output, "0");
+        assertEquals("0", output);
     }
     @Test
     public void testPointerToArrayModification() throws IOException, InterruptedException {

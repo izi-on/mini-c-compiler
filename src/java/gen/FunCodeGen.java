@@ -53,10 +53,20 @@ public class FunCodeGen extends CodeGen {
         public void applyPrologue() {
             ts.emit("Clearing entire allocated stack frame of size " + frameSize);
 
-            // Create virtual registers to hold temporary values.
-            Register loopCounter = Register.Virtual.create();
-            Register tempAddr    = Register.Virtual.create();
-            Register cmpReg      = Register.Virtual.create();
+            // Create registers to hold temporary values.
+            Register loopCounter = Register.Arch.t0;
+            Register tempAddr    = Register.Arch.t1;
+            Register cmpReg      = Register.Arch.t2;
+
+            // save the previous values of the registers
+            ts.emit("Mini push for temporary registers");
+            ts.emit(OpCode.ADDIU, Register.Arch.sp, Register.Arch.sp, -4);
+            ts.emit(OpCode.SW, loopCounter, Register.Arch.sp, 0);
+            ts.emit(OpCode.ADDIU, Register.Arch.sp, Register.Arch.sp, -4);
+            ts.emit(OpCode.SW, tempAddr, Register.Arch.sp, 0);
+            ts.emit(OpCode.ADDIU, Register.Arch.sp, Register.Arch.sp, -4);
+            ts.emit(OpCode.SW, cmpReg, Register.Arch.sp, 0);
+            ts.emit("Mini push END for temporary registers");
 
             // Initialize the loop counter to the byte size.
             ts.emit(OpCode.LI, loopCounter, TypeSizeGetter.BYTE_SIZE);
@@ -75,6 +85,19 @@ public class FunCodeGen extends CodeGen {
             // If cmpReg != 0, branch back to the loop label.
             ts.emit(OpCode.BNE, cmpReg, Register.Arch.zero, loopLabel);
             ts.emit(endLabel);
+
+            // restore the previous values of the registers
+            ts.emit("Mini pop for temporary registers");
+            ts.emit(OpCode.LW, cmpReg, Register.Arch.sp, 0);
+            ts.emit(OpCode.SW, Register.Arch.zero, Register.Arch.sp, 0);
+            ts.emit(OpCode.ADDIU, Register.Arch.sp, Register.Arch.sp, 4);
+            ts.emit(OpCode.LW, tempAddr, Register.Arch.sp, 0);
+            ts.emit(OpCode.SW, Register.Arch.zero, Register.Arch.sp, 0);
+            ts.emit(OpCode.ADDIU, Register.Arch.sp, Register.Arch.sp, 4);
+            ts.emit(OpCode.LW, loopCounter, Register.Arch.sp, 0);
+            ts.emit(OpCode.SW, Register.Arch.zero, Register.Arch.sp, 0);
+            ts.emit(OpCode.ADDIU, Register.Arch.sp, Register.Arch.sp, 4);
+            ts.emit("Mini pop END for temporary registers");
         }
         @Override
         public void applyEpilogue() {

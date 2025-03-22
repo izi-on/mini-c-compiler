@@ -3,6 +3,7 @@ package regalloc;
 import ast.Program;
 import gen.ProgramCodeGen;
 import gen.asm.AssemblyProgram;
+import gen.asm.Register;
 import lexer.Scanner;
 import lexer.Tokeniser;
 import parser.Parser;
@@ -15,10 +16,13 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
 
-public class TestControlFlowGraph {
+public class TestInterferenceGraph {
 
-    private void printCfg(String code) throws IOException {
+    static private void printInterferenceGraph(String code) throws IOException {
         Path tempFile = Files.createTempFile("temp", ".tmp");
         Files.write(tempFile, code.getBytes(StandardCharsets.UTF_8));
         try {
@@ -51,11 +55,23 @@ public class TestControlFlowGraph {
             AssemblyProgram asmProgWithVirtualRegs = new AssemblyProgram();
             ProgramCodeGen progGen = new ProgramCodeGen(asmProgWithVirtualRegs);
             progGen.generate(prog);
-            ControlFlowNode node = GraphColouringRegAlloc.buildControlFlowGraph(
-                    asmProgWithVirtualRegs.textSections.get(asmProgWithVirtualRegs.textSections.size() -1),
-                    asmProgWithVirtualRegs.textSections.get(asmProgWithVirtualRegs.textSections.size() -1).items
-                    );
-            new ControlFlowNodePrinter().visit(node);
+            AssemblyProgram.TextSection ts = asmProgWithVirtualRegs.textSections.get(asmProgWithVirtualRegs.textSections.size() -1);
+
+            // step 1: build cfg
+            ControlFlowNode controlFlowEntryNode = GraphColouringRegAlloc.buildControlFlowGraph(ts, ts.items);
+
+            // step 2: liveliness analysis for the control flow graph
+            Map<ControlFlowNode, Set<Register>> liveIn = new HashMap<>();
+            Map<ControlFlowNode, Set<Register>> liveOut = new HashMap<>();
+            GraphColouringRegAlloc.livelinessAnalysis(controlFlowEntryNode, liveIn, liveOut);
+
+            // step 3: interference graph
+            Map<Register, Set<Register>> interferenceGraph = GraphColouringRegAlloc.getInterferenceGraph(liveIn ,liveOut);
+
+            for (Map.Entry<Register, Set<Register>> entry : interferenceGraph.entrySet()) {
+                System.out.println(entry.getKey() + " -> " + entry.getValue());
+            }
+
         } catch (FileNotFoundException e) {
             System.err.println("Source file not found: " + tempFile.toFile().getAbsolutePath());
             throw e;
@@ -66,8 +82,7 @@ public class TestControlFlowGraph {
     }
 
     public static void main(String[] args) throws IOException {
-        TestControlFlowGraph test = new TestControlFlowGraph();
-        test.printCfg(test3);
+        printInterferenceGraph(test3);
     }
 
     public static String test1 = """
