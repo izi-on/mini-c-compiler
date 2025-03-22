@@ -14,14 +14,17 @@ public class GraphColouringRegAlloc implements AssemblyPass {
 
     public static final GraphColouringRegAlloc INSTANCE = new GraphColouringRegAlloc();
 
+//    public static final List<Register> AVAILABLE_REGISTERS = List.of(
+//            Register.Arch.t0, Register.Arch.t1, Register.Arch.t2
+//    );
     public static final List<Register> AVAILABLE_REGISTERS = List.of(
             Register.Arch.t0, Register.Arch.t1, Register.Arch.t2, Register.Arch.t3, Register.Arch.t4, Register.Arch.t5,
             Register.Arch.t6, Register.Arch.t7, Register.Arch.t8, Register.Arch.t9, Register.Arch.s0, Register.Arch.s1,
-            Register.Arch.s2, Register.Arch.s3, Register.Arch.s4
+            Register.Arch.s2, Register.Arch.s3
     );
 
     public static final List<Register> TEMP_SPILLING_REGISTERS = List.of(
-            Register.Arch.s5, Register.Arch.s6, Register.Arch.s7
+            Register.Arch.s4, Register.Arch.s5, Register.Arch.s6, Register.Arch.s7
     );
 
 
@@ -358,12 +361,13 @@ public class GraphColouringRegAlloc implements AssemblyPass {
                             newTextSection.emit("Original instruction: pushRegisters");
                             for (Label l : labelsToVisitInOrder) { // first, push the spilled registers
                                 // load content of memory at label into $t0
-                                newTextSection.emit(OpCode.LA, Register.Arch.t0, l);
-                                newTextSection.emit(OpCode.LW, Register.Arch.t0, Register.Arch.t0, 0);
+                                Register tempRegister = TEMP_SPILLING_REGISTERS.get(0);
+                                newTextSection.emit(OpCode.LA, tempRegister, l);
+                                newTextSection.emit(OpCode.LW, tempRegister, tempRegister, 0);
 
                                 // push $t0 onto stack
                                 newTextSection.emit(OpCode.ADDIU, Register.Arch.sp, Register.Arch.sp, -4);
-                                newTextSection.emit(OpCode.SW, Register.Arch.t0, Register.Arch.sp, 0);
+                                newTextSection.emit(OpCode.SW, tempRegister, Register.Arch.sp, 0);
                             }
                             newTextSection.emit("Registers:");
                             for (Register r : registersToVisitInOrder) {
@@ -381,13 +385,15 @@ public class GraphColouringRegAlloc implements AssemblyPass {
                             }
                             newTextSection.emit("Labels:");
                             for (Label l : labelToVisitInReverseOrder) {
+                                Register tempRegister = TEMP_SPILLING_REGISTERS.get(0);
+                                Register tempRegister2 = TEMP_SPILLING_REGISTERS.get(1);
                                 // pop from stack into $t0
-                                newTextSection.emit(OpCode.LW, Register.Arch.t0, Register.Arch.sp, 0);
+                                newTextSection.emit(OpCode.LW, tempRegister, Register.Arch.sp, 0);
                                 newTextSection.emit(OpCode.ADDIU, Register.Arch.sp, Register.Arch.sp, 4);
 
                                 // store content of $t0 in memory at label
-                                newTextSection.emit(OpCode.LA, Register.Arch.t1, l);
-                                newTextSection.emit(OpCode.SW, Register.Arch.t0, Register.Arch.t1, 0);
+                                newTextSection.emit(OpCode.LA, tempRegister2, l);
+                                newTextSection.emit(OpCode.SW, tempRegister, tempRegister2, 0);
                             }
                         } else {
                             List<Register> tempReg = new ArrayList<>(TEMP_SPILLING_REGISTERS);
@@ -412,8 +418,15 @@ public class GraphColouringRegAlloc implements AssemblyPass {
                                 vrToAr.put(usedRegisters.get(i), newRegisters.get(i));
                             }
 
+                            Instruction newInsn = insn.rebuild(vrToAr);
                             newTextSection.emit("Original instruction: " + insn);
-                            newTextSection.emit(insn.rebuild(vrToAr));
+                            newTextSection.emit(newInsn);
+                            if (insn.def() != null && insn.def().isVirtual() && labelledRegisters.get(insn.def()) == -1) { // if we are defining the virtual register, we need to store it back
+                                Register tmp = tempReg.remove(0);
+                                Label label = vrMap.get(insn.def());
+                                newTextSection.emit(OpCode.LA, tmp, label);
+                                newTextSection.emit(OpCode.SW, newInsn.def(), tmp, 0);
+                            }
                         }
                     }
                 }

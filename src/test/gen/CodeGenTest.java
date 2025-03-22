@@ -2648,4 +2648,114 @@ public class CodeGenTest {
         String output = runCode(code);
         assertEquals(expectedOutput, output, "Multi-dimensional array function call should modify values.");
     }
+
+
+    @Test
+    public void testLotsOfVariablesForceSpilling() throws IOException, InterruptedException {
+        String code = """
+        int fun() {
+            int x1;
+            int x2;
+            int x3;
+            int x4;
+            int x5;
+            int x6;
+            int x7;
+            int x8;
+            int x9;
+            int x10;
+            int x11;
+            int x12;
+            int x13;
+            int x14;
+            int x15;
+            int x16;
+            int x17;
+            int x18;
+            int x19;
+            int x20;
+            int x21;
+            int sum;
+            x1 = 1;
+            x2 = 1;
+            x3 = 1;
+            x4 = 1;
+            x5 = 1;
+            x6 = 1;
+            x7 = 1;
+            x8 = 1;
+            x9 = 1;
+            x10 = 1;
+            x11 = 1;
+            x12 = 1;
+            x13 = 1;
+            x14 = 1;
+            x15 = 1;
+            x16 = 1;
+            x17 = 1;
+            x18 = 1;
+            x19 = 1;
+            x20 = 1;
+            x21 = 1;
+            sum = x1 + x2 + x3 + x4 + x5 + x6 + x7 + x8 + x9 + x10 +
+                  x11 + x12 + x13 + x14 + x15 + x16 + x17 + x18 + x19 + x20 + x21;
+            print_s((char*)"Random Function!\\n");
+            print_i(sum);
+            print_c('\\n');
+        }
+        
+        int main() {
+            int x1;
+            int x2;
+            int x3;
+            int x4;
+            int x5;
+            int x6;
+            int x7;
+            int x8;
+            int x9;
+            int x10;
+            int x11;
+            int x12;
+            int x13;
+            int x14;
+            int x15;
+            int x16;
+            int x17;
+            int x18;
+            int x19;
+            int x20;
+            int x21;
+            int sum;
+            x1 = 1;
+            x2 = 2;
+            x3 = 3;
+            x4 = 4;
+            x5 = 5;
+            x6 = 6;
+            x7 = 7;
+            x8 = 8;
+            x9 = 9;
+            x10 = 10;
+            x11 = 11;
+            x12 = 12;
+            x13 = 13;
+            x14 = 14;
+            x15 = 15;
+            x16 = 16;
+            x17 = 17;
+            x18 = 18;
+            x19 = 19;
+            x20 = 20;
+            fun();
+            sum = x1 + x2 + x3 + x4 + x5 + x6 + x7 + x8 + x9 + x10 +
+                  x11 + x12 + x13 + x14 + x15 + x16 + x17 + x18 + x19 + x20 + x21;
+            print_i(sum);
+            return 0;
+        }
+    """;
+        String expectedOutput = "Random Function!\n21\n210";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Register spilling test failed");
+    }
 }
