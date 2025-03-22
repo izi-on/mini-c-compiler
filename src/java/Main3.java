@@ -6,6 +6,7 @@ import lexer.Scanner;
 import lexer.Token;
 import lexer.Tokeniser;
 import parser.Parser;
+import regalloc.GraphColouringRegAlloc;
 import regalloc.NaiveRegAlloc;
 import sem.SemanticAnalyzer;
 
@@ -191,7 +192,7 @@ public class Main3 {
 
 
             assert(mode == mode.GEN);
-            AssemblyPass regAlloc = NaiveRegAlloc.INSTANCE;
+            AssemblyPass regAlloc = GraphColouringRegAlloc.INSTANCE;
             CodeGenerator codegen = new CodeGenerator(regAlloc);
 
             ensureArgExists(args, curArgCnt);

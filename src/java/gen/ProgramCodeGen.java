@@ -16,7 +16,7 @@ public class ProgramCodeGen extends CodeGen {
         this.asmProg = asmProg;
     }
 
-    void generate(Program p) {
+    public void generate(Program p) {
         // allocate all variables
         MemAllocCodeGen allocator = MemContext.newAllocator(asmProg);
         allocator.visit(p); // will also hold information for offsets of declarations

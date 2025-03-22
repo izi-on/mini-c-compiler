@@ -5,7 +5,7 @@ import ast.*;
 public class AllowedStmntAnalyzer extends BaseSemanticAnalyzer {
     private void checkIfInLoop() {
         if (scope.lookup(LoopSymbol.loopSymbolKey) == null) {
-            error("continue statement not in loop");
+            error("this statement can only be used in a loop");
         }
     }
 

@@ -1046,4 +1046,16 @@ public class SemanticAnalysisEndToEndTest {
         int errors = runSemanticAnalysis(input);
         assertEquals(0, errors, "Valid nested structs should be semantically correct");
     }
+
+    @Test
+    public void testBreakWhenNotInLoop() throws IOException {
+        String input = """
+                int main() {
+                    break;
+                    return 0;
+                }
+                """;
+        int errors = runSemanticAnalysis(input);
+        assertTrue(errors > 0, "cant break when no loop");
+    }
 }
