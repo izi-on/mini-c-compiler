@@ -1,11 +1,14 @@
 import ast.ASTPrinter;
 import ast.Program;
 import gen.CodeGenerator;
+import gen.asm.AssemblyParser;
 import gen.asm.AssemblyPass;
+import gen.asm.AssemblyProgram;
 import lexer.Scanner;
 import lexer.Token;
 import lexer.Tokeniser;
 import parser.Parser;
+import regalloc.GraphColouringRegAlloc;
 import regalloc.NaiveRegAlloc;
 import sem.SemanticAnalyzer;
 
@@ -15,7 +18,7 @@ import java.io.*;
 /**
  * This is the entry point to the compiler. This files should not be modified.
  */
-public class Main3 {
+public class Main4 {
 
     private static final String LOGFILE = "out.log";
     private static final int UNKNOWN_EXCEPTION = 1;
@@ -28,14 +31,18 @@ public class Main3 {
     private static final int PASS           = 0;
 
     private enum Mode {
-        LEXER, PARSER, AST, SEMANTICANALYSIS, GEN
+        LEXER, PARSER, AST, SEMANTICANALYSIS, GEN, REGALLOC
+    }
+
+    private enum RegAllocMode {
+        NONE, NAIVE, GRAPH_COLOURING
     }
 
 
     private static void usage() {
-        System.out.println("Usage: java "+ Main3.class.getSimpleName()+" pass inputfile [outputfile]");
-        System.out.println("where pass is either: -lexer, -parser, -ast, -sem, -gen");
-        System.out.println("if -ast or -gen is chosen, the output file must be specified");
+        System.out.println("Usage: java "+ Main4.class.getSimpleName()+" pass inputfile [outputfile]");
+        System.out.println("where pass is either: -lexer, -parser, -ast, -sem, -gen [naive|colour], -regalloc naive|colour");
+        System.out.println("if -ast, -gen or -regalloc is chosen, the output file must be specified");
         System.exit(-1);
     }
 
@@ -75,6 +82,7 @@ public class Main3 {
         ensureArgExists(args, 0);
 
         Mode mode = null;
+        RegAllocMode regAllocMode = RegAllocMode.NONE;
         int curArgCnt = 0;
         switch (args[curArgCnt]) {
             case "-lexer":
@@ -95,9 +103,29 @@ public class Main3 {
                 mode = Mode.SEMANTICANALYSIS;
                 curArgCnt++;
                 break;
-            case "-gen":
+             case "-gen":
                 mode = Mode.GEN;
                 curArgCnt++;
+                ensureArgExists(args, curArgCnt);
+                if (args[curArgCnt].equals("naive")) {
+                    regAllocMode = RegAllocMode.NAIVE;
+                    curArgCnt++;
+                } else if (args[curArgCnt].equals("colour")) {
+                    regAllocMode = RegAllocMode.GRAPH_COLOURING;
+                    curArgCnt++;
+                }
+                break;
+            case "-regalloc":
+                mode = Mode.REGALLOC;
+                curArgCnt++;
+                ensureArgExists(args, curArgCnt);
+                if (args[curArgCnt].equals("naive")) {
+                    regAllocMode = RegAllocMode.NAIVE;
+                    curArgCnt++;
+                } else if (args[curArgCnt].equals("colour")) {
+                    regAllocMode = RegAllocMode.GRAPH_COLOURING;
+                    curArgCnt++;
+                }
                 break;
             default:
                 usage();
@@ -192,7 +220,11 @@ public class Main3 {
 
             assert(mode == mode.GEN);
 
-            AssemblyPass regAlloc = NaiveRegAlloc.INSTANCE;
+            AssemblyPass regAlloc = switch (regAllocMode) {
+                case NONE -> AssemblyPass.NOP;
+                case NAIVE -> NaiveRegAlloc.INSTANCE;
+                case GRAPH_COLOURING -> GraphColouringRegAlloc.INSTANCE;
+            };
             CodeGenerator codegen = new CodeGenerator(regAlloc);
 
             ensureArgExists(args, curArgCnt);
@@ -207,6 +239,46 @@ public class Main3 {
             }
 
             System.exit(PASS);
+        }
+
+         else if (mode == Mode.REGALLOC) {
+            ensureArgExists(args, curArgCnt);
+            File outputFile = new File(args[curArgCnt]);
+            curArgCnt++;
+
+            AssemblyPass regAlloc = switch (regAllocMode) {
+                case NONE -> AssemblyPass.NOP;
+                case NAIVE -> NaiveRegAlloc.INSTANCE;
+                case GRAPH_COLOURING -> GraphColouringRegAlloc.INSTANCE;
+            };
+
+            AssemblyProgram program;
+            try {
+                var reader = new FileReader(inputFile);
+                program = AssemblyParser.readAssemblyProgram(new BufferedReader(reader));
+                reader.close();
+            } catch (FileNotFoundException e) {
+                System.out.println("File " + inputFile + " does not exist.");
+                System.exit(FILE_NOT_FOUND);
+                return;
+            } catch (IOException e) {
+                System.out.println("An I/O exception occurred when reading " + inputFile + ".");
+                System.exit(IO_EXCEPTION);
+                return;
+            }
+
+            var programWithoutVRegs = regAlloc.apply(program);
+
+            PrintWriter writer;
+            try {
+                writer = new PrintWriter(outputFile);
+            } catch (FileNotFoundException e) {
+                System.out.println("Cannot write to output file " + outputFile + ".");
+                System.exit(FILE_NOT_FOUND);
+                return;
+            }
+            programWithoutVRegs.print(writer);
+            writer.close();
         }
 
         else {
