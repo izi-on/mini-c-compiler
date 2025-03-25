@@ -4,6 +4,8 @@ import gen.asm.*;
 import regalloc.control_flow.ControlFlowNode;
 import regalloc.control_flow.ControlFlowNodePrinter;
 
+import javax.naming.ldap.Control;
+import java.nio.file.FileSystemNotFoundException;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
@@ -14,18 +16,19 @@ public class GraphColouringRegAlloc implements AssemblyPass {
 
     public static final GraphColouringRegAlloc INSTANCE = new GraphColouringRegAlloc();
 
-//    public static final List<Register> AVAILABLE_REGISTERS = List.of(
-//            Register.Arch.t0, Register.Arch.t1, Register.Arch.t2
-//    );
     public static final List<Register> AVAILABLE_REGISTERS = List.of(
             Register.Arch.t0, Register.Arch.t1, Register.Arch.t2, Register.Arch.t3, Register.Arch.t4, Register.Arch.t5,
             Register.Arch.t6, Register.Arch.t7, Register.Arch.t8, Register.Arch.t9, Register.Arch.s0, Register.Arch.s1,
-            Register.Arch.s2, Register.Arch.s3
+            Register.Arch.s2, Register.Arch.s3, Register.Arch.s4, Register.Arch.s5
     );
 
     public static final List<Register> TEMP_SPILLING_REGISTERS = List.of(
-            Register.Arch.s4, Register.Arch.s5, Register.Arch.s6, Register.Arch.s7
+            Register.Arch.s6, Register.Arch.s7
     );
+
+    static {
+        assert TEMP_SPILLING_REGISTERS.size() >= 2;
+    }
 
 
     /**
@@ -147,7 +150,7 @@ public class GraphColouringRegAlloc implements AssemblyPass {
 
     public static final ControlFlowNode buildControlFlowGraph(AssemblyProgram.TextSection textSection, List<AssemblyItem> items) {
         ControlFlowNode entry = ControlFlowNode.create(textSection);
-        Map<AssemblyItem, List<Label>> itemLabelListMap = new IdentityHashMap<>();
+        Map<AssemblyItem, HashSet<Label>> itemLabelListMap = new IdentityHashMap<>();
         Map<AssemblyItem, ControlFlowNode> itemControlFlowNodeMap = new IdentityHashMap<>();
         Map<Label, ControlFlowNode> labelControlFlowNodeMap = new IdentityHashMap<>();
 
@@ -179,7 +182,7 @@ public class GraphColouringRegAlloc implements AssemblyPass {
             switch (item) {
                 case Label l -> {accumulatedLabels.add(l);}
                 default -> {
-                    itemLabelListMap.put(item, new ArrayList<>(accumulatedLabels));
+                    itemLabelListMap.put(item, new HashSet<>(accumulatedLabels));
                     accumulatedLabels.clear();
                 }
             }
@@ -260,41 +263,147 @@ public class GraphColouringRegAlloc implements AssemblyPass {
         return entry;
     }
 
-    public static List<AssemblyItem> removeUselessItems(List<AssemblyItem> items) {
-        // step 0: remove redundant virtual registers. For example, a register is defined but never used
-        Map<Register, List<Integer>>  registerToInstructionsIdx = new HashMap<>();
-        for (int i = 0; i < items.size(); i++) {
-            AssemblyItem item = items.get(i);
-            if (!(item instanceof Instruction insn)) {
-                continue;
-            }
+    public static List<AssemblyItem> removeUselessItems(ControlFlowNode entry, List<AssemblyItem> items) {
 
-            // add defined registers to the map
-            if (insn.def() != null) {
-                List<Register> definedVirtualRegisters = List.of(insn.def()).stream().filter(r -> r.isVirtual()).collect(Collectors.toList());
-                int finalI = i;
-                definedVirtualRegisters.forEach(definedRegister -> {
-                    registerToInstructionsIdx.computeIfAbsent(definedRegister, r -> new ArrayList<>()).add(finalI);
+        System.out.println("_________");
+        System.out.println("items before filtering:");
+        items.forEach(System.out::println);
+        System.out.println("_________");
+
+        // convert this list to a deque
+        Map<ControlFlowNode, HashSet<ControlFlowNode>> nodeToDefinitions = new HashMap<>(); // maps the item and the registers used in it to the items that define them
+        Map<ControlFlowNode, HashSet<ControlFlowNode>> nodeUsedBy = new HashMap<>(); // maps the item (its definition) to other items that use it
+        Map<Register, ControlFlowNode> registerToNodeDefinition = new HashMap<>(); // maps the register to the item that defines it
+        HashSet<ControlFlowNode> sources = new HashSet<>(); // items that are sources, so they are useless (they are not used by any other item)
+
+        ControlFlowNode.visitWithMaxVisits(entry, 2, node -> {
+            if (node.isInstruction()) {
+                nodeToDefinitions.computeIfAbsent(node, n -> new HashSet<>());
+
+                node.uses().stream().forEach(reg -> { // iterate through all the registers being used in the instruction
+                    Optional<ControlFlowNode> usedNode = Optional.ofNullable(registerToNodeDefinition.get(reg));
+                    usedNode.ifPresent(presentUsedNode -> { // if the node being used is linked to a node
+                        nodeToDefinitions.computeIfAbsent(node, i -> new HashSet<>()).add(presentUsedNode);
+                        nodeUsedBy.get(presentUsedNode).add(node);
+                    });
                 });
-            }
 
-            // remove the used registers from the map (not useless)
-            List<Register> usedRegister = insn.uses().stream().filter(r -> r.isVirtual()).collect(Collectors.toList());
-            for (Register r : usedRegister) {
-                registerToInstructionsIdx.remove(r);
+                if (node.defs().size() > 0) { // there is a definition
+                    registerToNodeDefinition.put(node.defs().get(0), node);
+                    nodeUsedBy.computeIfAbsent(node, i -> new HashSet<>());
+                }
+            }
+        });
+
+//        for (AssemblyItem item : items) {
+//            if (item instanceof Instruction insn) {
+//                itemToDefinitions.put(item, new ArrayList<>());
+//
+//                insn.uses().stream().filter(reg -> reg.isVirtual()).forEach(reg -> {
+//                    Optional<AssemblyItem> definingItem = Optional.ofNullable(registerToDefinition.get(reg));
+//                    definingItem.ifPresent(definingItemValue -> {
+//                        sources.remove(definingItemValue);
+//                        itemToDefinitions.computeIfAbsent(item, i -> new ArrayList<>()).add(definingItemValue);
+//                        itemUsedBy.computeIfAbsent(definingItemValue, i -> new ArrayList<>()).add(item);
+//                    });
+//                });
+//
+//                if (insn.def() != null && insn.def().isVirtual()) { // there is a definition
+//                    sources.add(item);
+//                    registerToDefinition.put(insn.def(), item);
+//                }
+//            }
+//        }
+
+        // scan the maps and find sources
+        nodeUsedBy.forEach((node, usedByNodes) -> {
+            if (usedByNodes.size() == 0) {
+                sources.add(node);
+            }
+        });
+
+//        // keep removing sources until there are no more sources
+//        while (sources.size() > 0) {
+//            // remove the item
+//            AssemblyItem toRemove = sources.iterator().next();
+//            sources.remove(toRemove);
+//            itemsDeque.remove(toRemove);
+//
+//            // go to each node that it uses, and remove it from the usedBy list
+//            for (AssemblyItem usedByItem : itemToDefinitions.get(toRemove)) {
+//                itemUsedBy.get(usedByItem).remove(toRemove);
+//                // if the usedByItem has no more sources, add it to the sources
+//                if (itemUsedBy.get(usedByItem).size() == 0) {
+//                    sources.add(usedByItem);
+//                }
+//            }
+//        }
+
+        // keep removing from sources until there are no more sources
+        List<AssemblyItem> itemsToRemove = new ArrayList<>();
+        while (sources.size() > 0) {
+            // remove the node
+            ControlFlowNode toRemove = sources.iterator().next();
+            sources.remove(toRemove);
+            itemsToRemove.add(toRemove.item);
+
+            // go to each node that it uses, and remove it from the usedBy list
+            for (ControlFlowNode usedByNode : nodeToDefinitions.get(toRemove)) {
+                nodeUsedBy.get(usedByNode).remove(toRemove);
+                // if the usedByItem has no more sources, add it to the sources
+                if (nodeUsedBy.get(usedByNode).size() == 0) {
+                    sources.add(usedByNode);
+                }
             }
         }
-        // any left over registers in this map are USELESS
-        Set<Integer> uselessIdx = new HashSet<>();
-        for (List<Integer> listOfUselessIdx : registerToInstructionsIdx.values()) {
-            uselessIdx.addAll(listOfUselessIdx);
-        }
-        // create a new list of items
-        List<AssemblyItem> filteredItems = IntStream.range(0, items.size())
-                .filter(i -> !uselessIdx.contains(i)) // condition using the index
-                .mapToObj(items::get)
-                .collect(Collectors.toList());
-        return filteredItems;
+
+        List<AssemblyItem> newItems = items.stream().filter(item ->
+            !itemsToRemove.stream().anyMatch(itemToRemove -> itemToRemove == item) // compare the reference
+        ).collect(Collectors.toList());
+
+
+        System.out.println("_________");
+        System.out.println("items after filtering:");
+        newItems.forEach(System.out::println);
+        System.out.println("_________");
+        return newItems; // return the filtered items
+
+//        // step 0: remove redundant virtual registers. For example, a register is defined but never used
+//        Map<Register, List<Integer>>  registerToInstructionsIdx = new HashMap<>();
+//        for (int i = 0; i < items.size(); i++) {
+//            AssemblyItem item = items.get(i);
+//            if (!(item instanceof Instruction insn)) {
+//                continue;
+//            }
+//
+//            // create a map from the instruction's used registers to their definitions (map from an item to a list of items)
+//
+//            // add defined registers to the map
+//            if (insn.def() != null) {
+//                List<Register> definedVirtualRegisters = List.of(insn.def()).stream().filter(r -> r.isVirtual()).collect(Collectors.toList());
+//                int finalI = i;
+//                definedVirtualRegisters.forEach(definedRegister -> {
+//                    registerToInstructionsIdx.computeIfAbsent(definedRegister, r -> new ArrayList<>()).add(finalI);
+//                });
+//            }
+//
+//            // remove the used registers from the map (not useless)
+//            List<Register> usedRegister = insn.uses().stream().filter(r -> r.isVirtual()).collect(Collectors.toList());
+//            for (Register r : usedRegister) {
+//                registerToInstructionsIdx.remove(r);
+//            }
+//        }
+//        // any left over registers in this map are USELESS
+//        Set<Integer> uselessIdx = new HashSet<>();
+//        for (List<Integer> listOfUselessIdx : registerToInstructionsIdx.values()) {
+//            uselessIdx.addAll(listOfUselessIdx);
+//        }
+//        // create a new list of items
+//        List<AssemblyItem> filteredItems = IntStream.range(0, items.size())
+//                .filter(i -> !uselessIdx.contains(i)) // condition using the index
+//                .mapToObj(items::get)
+//                .collect(Collectors.toList());
+//        return filteredItems;
     }
 
     @Override
@@ -311,11 +420,12 @@ public class GraphColouringRegAlloc implements AssemblyPass {
         program.textSections.forEach(textSection -> {
             AssemblyProgram.TextSection newTextSection = newProg.emitNewTextSection();
 
-            // step 0: filter items
-            List<AssemblyItem> filteredItems = removeUselessItems(textSection.items);
 
             // step 1: build cfg
-            ControlFlowNode controlFlowEntryNode = GraphColouringRegAlloc.buildControlFlowGraph(textSection, filteredItems);
+            ControlFlowNode controlFlowEntryNode = GraphColouringRegAlloc.buildControlFlowGraph(textSection, textSection.items);
+
+            // step 1.5: filter items
+            List<AssemblyItem> filteredItems = removeUselessItems(controlFlowEntryNode, textSection.items);
 
             // step 2: liveliness analysis for the control flow graph
             Map<ControlFlowNode, Set<Register>> liveIn = new IdentityHashMap<>();
@@ -403,6 +513,9 @@ public class GraphColouringRegAlloc implements AssemblyPass {
                                     return r;
                                 }
                                 if (labelledRegisters.get(r) == -1) { // needs to be spilled
+                                    if (insn.def() == r) { // if we are defining it, we can take any spiling reg
+                                        return TEMP_SPILLING_REGISTERS.get(0);
+                                    }
                                     Register tmp = tempReg.remove(0);
                                     Label label = vrMap.get(r);
                                     newTextSection.emit(OpCode.LA, tmp, label);
@@ -422,7 +535,7 @@ public class GraphColouringRegAlloc implements AssemblyPass {
                             newTextSection.emit("Original instruction: " + insn);
                             newTextSection.emit(newInsn);
                             if (insn.def() != null && insn.def().isVirtual() && labelledRegisters.get(insn.def()) == -1) { // if we are defining the virtual register, we need to store it back
-                                Register tmp = tempReg.remove(0);
+                                Register tmp = (newInsn.def() != TEMP_SPILLING_REGISTERS.get(0)) ? TEMP_SPILLING_REGISTERS.get(0) : TEMP_SPILLING_REGISTERS.get(1);
                                 Label label = vrMap.get(insn.def());
                                 newTextSection.emit(OpCode.LA, tmp, label);
                                 newTextSection.emit(OpCode.SW, newInsn.def(), tmp, 0);
@@ -435,5 +548,5 @@ public class GraphColouringRegAlloc implements AssemblyPass {
 
         });
         return newProg;
-    }
-}
+
+    }}

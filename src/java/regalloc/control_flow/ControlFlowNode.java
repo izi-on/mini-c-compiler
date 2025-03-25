@@ -26,6 +26,21 @@ public class ControlFlowNode {
         }
         callback.run(node);
     }
+
+    public static void visitWithMaxVisits(ControlFlowNode node, Callback callback, int maxVisits, Map<ControlFlowNode, Integer> visited) {
+        if (node == null) return;
+        if (visited.getOrDefault(node, 0) >= maxVisits) return;
+        visited.put(node, visited.getOrDefault(node, 0) + 1);
+        callback.run(node);
+        for (ControlFlowNode succ : node.successors) {
+            visitWithMaxVisits(succ, callback, maxVisits, visited);
+        }
+    }
+
+    public static void visitWithMaxVisits(ControlFlowNode node, int maxVisits,Callback callback) {
+        visitWithMaxVisits(node, callback, maxVisits, new HashMap<>());
+    }
+
     public List<Register> uses() {
         if (item == null) return new ArrayList<>();
         switch (item) {
@@ -66,10 +81,15 @@ public class ControlFlowNode {
         node.id = id;
         return node;
     }
+
+    public boolean isInstruction() {
+        return item instanceof Instruction;
+    }
+
     public int id() {return id;}
 
-    public List<ControlFlowNode> successors = new ArrayList<>();
-    public List<ControlFlowNode> predecessors = new ArrayList<>();
-    public List<Label> labelledBy = new ArrayList<>();
+    public Set<ControlFlowNode> successors = new HashSet<>();
+    public Set<ControlFlowNode> predecessors = new HashSet<>();
+    public Set<Label> labelledBy = new HashSet<>();
     public AssemblyItem item = null;
 }
