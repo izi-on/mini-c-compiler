@@ -2,14 +2,9 @@ package regalloc;
 
 import gen.asm.*;
 import regalloc.control_flow.ControlFlowNode;
-import regalloc.control_flow.ControlFlowNodePrinter;
-
-import javax.naming.ldap.Control;
-import java.nio.file.FileSystemNotFoundException;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 public class GraphColouringRegAlloc implements AssemblyPass {
