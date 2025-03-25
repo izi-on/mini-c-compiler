@@ -260,11 +260,6 @@ public class GraphColouringRegAlloc implements AssemblyPass {
 
     public static List<AssemblyItem> removeUselessItems(ControlFlowNode entry, List<AssemblyItem> items) {
 
-        System.out.println("_________");
-        System.out.println("items before filtering:");
-        items.forEach(System.out::println);
-        System.out.println("_________");
-
         // convert this list to a deque
         Map<ControlFlowNode, HashSet<ControlFlowNode>> nodeToDefinitions = new HashMap<>(); // maps the item and the registers used in it to the items that define them
         Map<ControlFlowNode, HashSet<ControlFlowNode>> nodeUsedBy = new HashMap<>(); // maps the item (its definition) to other items that use it
@@ -357,10 +352,6 @@ public class GraphColouringRegAlloc implements AssemblyPass {
         ).collect(Collectors.toList());
 
 
-        System.out.println("_________");
-        System.out.println("items after filtering:");
-        newItems.forEach(System.out::println);
-        System.out.println("_________");
         return newItems; // return the filtered items
 
 //        // step 0: remove redundant virtual registers. For example, a register is defined but never used
