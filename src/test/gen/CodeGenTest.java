@@ -2758,4 +2758,484 @@ public class CodeGenTest {
         String output = runCode(code);
         assertEquals(expectedOutput, output, "Register spilling test failed");
     }
+
+    @Test
+    public void testComplexArrayReduction() throws IOException, InterruptedException {
+        String code = """
+        int main() {
+            int arr[3][4];
+            int i;
+            int j;
+            int result;
+            // Fill array with values 1 to 12
+            i = 0;
+            while (i < 3) {
+                j = 0;
+                while (j < 4) {
+                    arr[i][j] = i * 4 + j + 1;
+                    j = j + 1;
+                }
+                i = i + 1;
+            }
+            // Compute reduction: for each element, if even add its square, else subtract its square.
+            result = 0;
+            i = 0;
+            while (i < 3) {
+                j = 0;
+                while (j < 4) {
+                    if (arr[i][j] % 2 == 0) {
+                        result = result + (arr[i][j] * arr[i][j]);
+                    } else {
+                        result = result - (arr[i][j] * arr[i][j]);
+                    }
+                    j = j + 1;
+                }
+                i = i + 1;
+            }
+            print_i(result);
+            return 0;
+        }
+    """;
+        // For numbers 1..12:
+        //   Odd numbers (1,3,5,7,9,11) squares sum = 1+9+25+49+81+121 = 286
+        //   Even numbers (2,4,6,8,10,12) squares sum = 4+16+36+64+100+144 = 364
+        // Expected result = 364 - 286 = 78
+        String expectedOutput = "78";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Very complex array reduction should produce 78");
+    }
+
+    @Test
+    public void testBalancedAdditionTreeLargeHoisted() throws IOException, InterruptedException {
+        String code = """
+        int balancedSum(int arr[32], int left, int right) {
+            if (left == right) {
+                return arr[left];
+            } else {
+                int mid;
+                mid = (left + right) / 2;
+                return balancedSum(arr, left, mid) + balancedSum(arr, mid + 1, right);
+            }
+        }
+        
+        int main() {
+            int arr[32];
+            int i;
+            i = 0;
+            // Fill the array with values 1 to 32
+            while (i < 32) {
+                arr[i] = i + 1;
+                i = i + 1;
+            }
+            // Compute the sum using a balanced addition tree
+            print_i(balancedSum(arr, 0, 31));
+            return 0;
+        }
+    """;
+        // Sum of numbers 1..32 is (32*33)/2 = 528.
+        String expectedOutput = "528";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Balanced addition tree large hoisted should produce 528");
+    }
+
+    @Test
+    public void testArrayMultiplicationTableSum() throws IOException, InterruptedException {
+        String code = """
+        int main() {
+            int table[5][5];
+            int i;
+            int j;
+            int sum;
+            // Build a 5x5 multiplication table where table[i][j] = (i+1) * (j+1)
+            i = 0;
+            while (i < 5) {
+                j = 0;
+                while (j < 5) {
+                    table[i][j] = (i + 1) * (j + 1);
+                    j = j + 1;
+                }
+                i = i + 1;
+            }
+            // Sum all elements of the multiplication table
+            sum = 0;
+            i = 0;
+            while (i < 5) {
+                j = 0;
+                while (j < 5) {
+                    sum = sum + table[i][j];
+                    j = j + 1;
+                }
+                i = i + 1;
+            }
+            print_i(sum);
+            return 0;
+        }
+    """;
+        // The 5x5 multiplication table rows are:
+        //   1+2+3+4+5 = 15, 2+4+6+8+10 = 30, 3+6+9+12+15 = 45,
+        //   4+8+12+16+20 = 60, 5+10+15+20+25 = 75.
+        // Total sum = 15+30+45+60+75 = 225.
+        String expectedOutput = "225";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Array multiplication table sum should produce 225");
+    }
+
+    @Test
+    public void testIfNonBooleanCondition() throws IOException, InterruptedException {
+        // Test that a nonzero int is treated as true and 0 as false.
+        String code = """
+        int main() {
+            int a;
+            a = 5;
+            if (a) {
+                print_s((char*)"true");
+            } else {
+                print_s((char*)"false");
+            }
+            a = 0;
+            if (a) {
+                print_s((char*)"true");
+            } else {
+                print_s((char*)"false");
+            }
+            return 0;
+        }
+    """;
+        String expectedOutput = "truefalse";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Nonzero values should be treated as true in if conditions.");
+    }
+
+    @Test
+    public void testLogicalAndWithNonBooleanValues() throws IOException, InterruptedException {
+        // Test that logical AND (&&) correctly evaluates nonzero (true) and zero (false) values.
+        String code = """
+        int main() {
+            int x;
+            int y;
+            x = 3;   // nonzero -> true
+            y = -7;  // nonzero -> true
+            if (x && y) {
+                print_s((char*)"true");
+            } else {
+                print_s((char*)"false");
+            }
+            x = 0;   // false
+            if (x && y) {
+                print_s((char*)"true");
+            } else {
+                print_s((char*)"false");
+            }
+            return 0;
+        }
+    """;
+        String expectedOutput = "truefalse";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Logical AND should yield false when one operand is zero.");
+    }
+
+    @Test
+    public void testLogicalOrWithNonBooleanValues() throws IOException, InterruptedException {
+        // Test that logical OR (||) returns true if at least one operand is nonzero.
+        String code = """
+        int main() {
+            int a;
+            int b;
+            a = 0;
+            b = 5;  // nonzero -> true
+            if (a || b) {
+                print_s((char*)"true");
+            } else {
+                print_s((char*)"false");
+            }
+            b = 0;
+            if (a || b) {
+                print_s((char*)"true");
+            } else {
+                print_s((char*)"false");
+            }
+            return 0;
+        }
+    """;
+        String expectedOutput = "truefalse";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Logical OR should yield true if at least one operand is nonzero.");
+    }
+
+    @Test
+    public void testComplexLogicalExpression() throws IOException, InterruptedException {
+        // Test a compound expression: (a && b) || c, where a nonzero value makes the condition true.
+        String code = """
+        int main() {
+            int a;
+            int b;
+            int c;
+            a = 7;
+            b = 0;
+            c = 3;
+            // (a && b) evaluates to false because b is 0;
+            // then false || c evaluates to true since c is nonzero.
+            if ((a && b) || c) {
+                print_s((char*)"true");
+            } else {
+                print_s((char*)"false");
+            }
+            return 0;
+        }
+    """;
+        String expectedOutput = "true";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Compound logical expression should evaluate correctly with non-boolean ints.");
+    }
+
+    @Test
+    public void testMultipleBranchingIfElseWithArithmeticConditions() throws IOException, InterruptedException {
+        // Test chained if-else where conditions are arithmetic expressions that yield non-boolean integers.
+        String code = """
+        int main() {
+            int a;
+            a = 10;
+            if (a - 10) {
+                print_s((char*)"A");
+            } else if (a - 9) {
+                print_s((char*)"B");
+            } else if (a - 8) {
+                print_s((char*)"C");
+            } else {
+                print_s((char*)"D");
+            }
+            return 0;
+        }
+    """;
+        // Here a-10 is 0 (false); a-9 is 1 (true) so the branch prints "B".
+        String expectedOutput = "B";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Multiple branching with arithmetic conditions should choose the correct branch.");
+    }
+
+    @Test
+    public void testNegativeValuesInLogicalExpressions() throws IOException, InterruptedException {
+        // Test that negative nonzero integers are also treated as true.
+        String code = """
+        int main() {
+            int a;
+            int b;
+            a = -5;  // nonzero -> true
+            b = -3;  // nonzero -> true
+            if (a && b) {
+                print_s((char*)"nonzero");
+            } else {
+                print_s((char*)"zero");
+            }
+            return 0;
+        }
+    """;
+        String expectedOutput = "nonzero";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Negative nonzero values should evaluate as true in logical expressions.");
+    }
+
+    @Test
+    public void testArithmeticInIfConditions() throws IOException, InterruptedException {
+        // Test if conditions that use arithmetic expressions.
+        String code = """
+        int main() {
+            int a;
+            a = 5 * 2 - 10;  // equals 0, so condition is false.
+            if (a) {
+                print_s((char*)"NotZero");
+            } else {
+                print_s((char*)"Zero");
+            }
+            a = 5 * 2 - 9; // equals 1, so condition is true.
+            if (a) {
+                print_s((char*)"NotZero");
+            } else {
+                print_s((char*)"Zero");
+            }
+            return 0;
+        }
+    """;
+        String expectedOutput = "ZeroNotZero";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Arithmetic expressions in if conditions should evaluate to boolean correctly.");
+    }
+
+    @Test
+    public void testAndOrMixedExpressions() throws IOException, InterruptedException {
+        // Test simple mixed expressions using both && and || operators.
+        String code = """
+        int main() {
+            int x;
+            int y;
+            x = 3;
+            y = 2;
+            if (x && y) {
+                print_s((char*)"T");
+            } else {
+                print_s((char*)"F");
+            }
+            x = 0;
+            y = 5;
+            if (x || y) {
+                print_s((char*)"T");
+            } else {
+                print_s((char*)"F");
+            }
+            return 0;
+        }
+    """;
+        // Both conditions should be true, so expected output is "TT".
+        String expectedOutput = "TT";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Mixed AND/OR expressions should yield correct boolean results.");
+    }
+
+    @Test
+    public void testComplexAndOrMixed() throws IOException, InterruptedException {
+        // Test a more complex expression with both AND and OR in one condition.
+        String code = """
+        int main() {
+            int a;
+            int b;
+            int c;
+            a = 5;
+            b = 0;
+            c = 10;
+            // (a || b) evaluates to true (since a is nonzero)
+            // (b || c) evaluates to true (since c is nonzero)
+            // Thus, (a || b) && (b || c) should be true.
+            if ((a || b) && (b || c)) {
+                print_s((char*)"Pass");
+            } else {
+                print_s((char*)"Fail");
+            }
+            return 0;
+        }
+    """;
+        String expectedOutput = "Pass";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Complex mixed AND/OR should evaluate to true when appropriate.");
+    }
+
+    @Test
+    public void testShortCircuitAndNoEvaluationOfSecond() throws IOException, InterruptedException {
+        // If the left-hand side of an && expression returns 0 (false),
+        // then the right-hand side should not be evaluated.
+        String code = """
+        int x;
+        int foo() {
+            x = x + 1; // side effect: add 1 to x
+            return 0;  // false
+        }
+        int bar() {
+            x = x + 10; // side effect: add 10 to x (should not happen)
+            return 1;
+        }
+        int main() {
+            x = 0;
+            if (foo() && bar()) {
+                print_i(x);
+            } else {
+                print_i(x);  // Expect x to be 1 because bar() is not called
+            }
+            return 0;
+        }
+    """;
+        String expectedOutput = "1";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Short-circuit AND: second function should not execute if first returns 0.");
+    }
+
+    @Test
+    public void testShortCircuitOrNoEvaluationOfSecond() throws IOException, InterruptedException {
+        // If the left-hand side of an || expression returns nonzero (true),
+        // then the right-hand side should not be evaluated.
+        String code = """
+        int x;
+        int foo() {
+            x = x + 1; // side effect: add 1 to x
+            return 1;  // true
+        }
+        int bar() {
+            x = x + 10; // side effect: add 10 to x (should not happen)
+            return 0;
+        }
+        int main() {
+            x = 0;
+            if (foo() || bar()) {
+                print_i(x);  // Expect x to be 1 because bar() is not called
+            } else {
+                print_i(x);
+            }
+            return 0;
+        }
+    """;
+        String expectedOutput = "1";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Short-circuit OR: second function should not execute if first returns true.");
+    }
+
+    @Test
+    public void testMixedShortCircuitAndOr() throws IOException, InterruptedException {
+        // Test a mixed expression: (f() && g()) || h()
+        // f() returns true (1), so g() is evaluated.
+        // g() returns false (0) so (f() && g()) is false,
+        // then h() is evaluated and returns true, so overall condition is true.
+        // Side effects accumulate in x.
+        String code = """
+        int x;
+        int f() { x = x + 1; return 1; }   // adds 1
+        int g() { x = x + 10; return 0; }  // adds 10, returns false
+        int h() { x = x + 100; return 1; } // adds 100, returns true
+        int main() {
+            x = 0;
+            if (f() && g() || h()) {
+                print_i(x);
+            } else {
+                print_i(x);
+            }
+            return 0;
+        }
+    """;
+        // Expected evaluation:
+        // f() called → x becomes 1.
+        // f() returned 1, so g() is evaluated → x becomes 1+10 = 11.
+        // (f() && g()) is false (0), so h() is evaluated → x becomes 11+100 = 111.
+        // Overall condition true; output should be "111".
+        String expectedOutput = "111";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Mixed short-circuit AND/OR should evaluate correctly.");
+    }
+
+    @Test
+    public void testComplexShortCircuitExpression() throws IOException, InterruptedException {
+        // Test a compound expression using both || and && with nested calls.
+        // (a() || b()) is evaluated: a() returns 0 so b() must be called.
+        // Then the result is ANDed with a() (called again), which returns 0.
+        // Thus, the condition is false.
+        String code = """
+        int x;
+        int a() {
+            x = x + 2; // side effect: add 2 to x
+            return 0;
+        }
+        int b() {
+            x = x + 3; // side effect: add 3 to x
+            return 1;
+        }
+        int main() {
+            x = 0;
+            if ((a() || b()) && a()) {
+                print_i(x);
+            } else {
+                print_i(x);  // Expected: a() called twice and b() called once → x = 2 + 3 + 2 = 7
+            }
+            return 0;
+        }
+    """;
+        String expectedOutput = "7";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Complex short-circuit expression should evaluate operands in order.");
+    }
 }

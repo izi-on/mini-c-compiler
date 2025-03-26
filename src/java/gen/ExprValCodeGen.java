@@ -58,17 +58,13 @@ public class ExprValCodeGen extends CodeGen {
                         Label trueEval = Label.create("true_or");
                         Label endLbl = Label.create("end_or");
 
-                        // register for the value 1
-                        Register oneReg = Register.Virtual.create();
-                        ts.emit(OpCode.ADDI, oneReg, Register.Arch.zero, 1);
-
                         // eval left
                         Register leftReg = visit(binop.lhs).getValRegister();
-                        ts.emit(OpCode.BEQ, leftReg, oneReg, trueEval);
+                        ts.emit(OpCode.BNEZ, leftReg, trueEval);
 
                         // eval right
                         Register rightReg = visit(binop.rhs).getValRegister();
-                        ts.emit(OpCode.BEQ, rightReg, oneReg, trueEval);
+                        ts.emit(OpCode.BNEZ, rightReg, trueEval);
 
                         Register result = Register.Virtual.create();
 
