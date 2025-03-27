@@ -3238,4 +3238,539 @@ public class CodeGenTest {
         String output = runCode(code);
         assertEquals(expectedOutput, output, "Complex short-circuit expression should evaluate operands in order.");
     }
-}
+
+    @Test
+    public void testComplexTreeTraversalAndAggregation() throws IOException, InterruptedException {
+        String code = """
+        // A binary tree where each node stores an integer and pointers to left/right children.
+        // Instead of checking for null, we rely on hasLeft and hasRight to know if a child exists.
+        struct TreeNode {
+            int value;
+            struct TreeNode* left;
+            struct TreeNode* right;
+            int hasLeft;
+            int hasRight;
+        };
+        
+        // Recursively create a complete binary tree of given depth.
+        // For depth == 1, mark no children (hasLeft and hasRight false).
+        struct TreeNode* createTree(int depth, int start) {
+            struct TreeNode* node;
+            node = (struct TreeNode*) mcmalloc(sizeof(struct TreeNode));
+            (*node).value = start;
+            if (depth == 1) {
+                (*node).hasLeft = 0;
+                (*node).hasRight = 0;
+                // No need to initialize left/right as they will not be dereferenced
+            } else {
+                (*node).hasLeft = 1;
+                (*node).hasRight = 1;
+                (*node).left = createTree(depth - 1, start * 2);
+                (*node).right = createTree(depth - 1, start * 2 + 1);
+            }
+            return node;
+        }
+        
+        // Global flag to manage comma printing.
+        int first;
+        void inOrder(struct TreeNode* node) {
+            // Traverse left child only if flag is true.
+            if ((*node).hasLeft) {
+                inOrder((*node).left);
+            }
+            if (first) {
+                first = 0;
+            } else {
+                print_c(',');
+            }
+            print_i((*node).value);
+            // Traverse right child only if flag is true.
+            if ((*node).hasRight) {
+                inOrder((*node).right);
+            }
+        }
+        
+        // Recursively double each node's value.
+        void doubleTree(struct TreeNode* node) {
+            (*node).value = (*node).value * 2;
+            if ((*node).hasLeft) {
+                doubleTree((*node).left);
+            }
+            if ((*node).hasRight) {
+                doubleTree((*node).right);
+            }
+        }
+        
+        // Recursively sum all node values.
+        int sumTree(struct TreeNode* node) {
+            int sum;
+            sum = (*node).value;
+            if ((*node).hasLeft) {
+                sum = sum + sumTree((*node).left);
+            }
+            if ((*node).hasRight) {
+                sum = sum + sumTree((*node).right);
+            }
+            return sum;
+        }
+        
+        int main() {
+            struct TreeNode* root;
+            first = 1;
+            // Create a tree of depth 3 starting at value 1.
+            root = createTree(3, 1);
+            // In-order traversal should print: 4,2,5,1,6,3,7
+            inOrder(root);
+            print_s((char*)"\\n");
+            first = 1;
+            // Double every node's value; in-order now: 8,4,10,2,12,6,14
+            doubleTree(root);
+            inOrder(root);
+            print_s((char*)"\\n");
+            // Sum of doubled values: 8+4+10+2+12+6+14 = 56
+            print_i(sumTree(root));
+            return 0;
+        }
+        """;
+        String expectedOutput = "4,2,5,1,6,3,7\n8,4,10,2,12,6,14\n56";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Complex tree traversal and aggregation test failed");
+    }
+
+    @Test
+    public void testNestedControlFlowAndShadowingChaos() throws IOException, InterruptedException {
+        String code = """
+        // This function demonstrates multiple features:
+        // - An arithmetic-based if-else to update a result.
+        // - A block that declares a variable 'a' to shadow the parameter.
+        // - A loop with inner blocks that compute temporary values using arithmetic and short-circuit logic.
+        int complexCalc(int a) {
+            int result;
+            int i;
+            result = a;
+            if (a - 5) {
+                result = result + 10;
+            } else {
+                result = result - 10;
+            }
+            {
+                int a;  // shadows the parameter
+                a = result * 2;
+                // Using short-circuit logical operators; note that 0 is false and nonzero true.
+                if (a && (result - 20)) {
+                    result = result + a;
+                } else {
+                    result = result - a;
+                }
+            }
+            i = 0;
+            while (i < 3) {
+                {
+                    int temp;
+                    temp = i * 3;
+                    if ((i || 0) && (i - 1)) {
+                        temp = temp + 5;
+                    }
+                    print_i(temp);
+                    if (i < 2) {
+                        print_c(',');
+                    }
+                }
+                i = i + 1;
+            }
+            return result;
+        }
+        
+        int main() {
+            int x;
+            x = 5;
+            // For input 5:
+            //   - The inner loop prints: 0,3,11
+            //   - The function returns -15.
+            print_i(complexCalc(x));  // prints -15 immediately after the loop outputs
+            print_c(',');
+            x = 7;
+            // For input 7:
+            //   - The loop prints: 0,3,11
+            //   - The function returns 51.
+            print_i(complexCalc(x));  // prints 51 after the loop outputs
+            return 0;
+        }
+        """;
+        // Expected output: the loop outputs "0,3,11" from each call concatenated with the return values,
+        // resulting in "0,3,11-15,0,3,1151".
+        String expectedOutput = "0,3,11-15,0,3,1151";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Nested control flow and shadowing chaos test failed");
+    }
+
+    @Test
+    public void testUltimateIntegrationWithMultiDimArraysAndStructs() throws IOException, InterruptedException {
+        String code = """
+        // Define a struct that contains a 3x3 matrix.
+        struct Matrix {
+            int data[3][3];
+        };
+        
+        // Recursively compute the sum of all elements in the matrix.
+        int sumMatrixRec(struct Matrix m, int i, int j) {
+            if (i >= 3) {
+                return 0;
+            }
+            if (j >= 3) {
+                return sumMatrixRec(m, i + 1, 0);
+            }
+            return m.data[i][j] + sumMatrixRec(m, i, j + 1);
+        }
+        
+        // Double every element in the matrix using nested loops.
+        void modifyMatrix(struct Matrix* m) {
+            int i;
+            int j;
+            i = 0;
+            while (i < 3) {
+                j = 0;
+                while (j < 3) {
+                    (*m).data[i][j] = (*m).data[i][j] * 2;
+                    j = j + 1;
+                }
+                i = i + 1;
+            }
+        }
+        
+        // A heavy computation function to force register spilling by summing numbers 1 to 20.
+        int heavyCalc() {
+            int a1;
+            int a2;
+            int a3;
+            int a4;
+            int a5;
+            int a6;
+            int a7;
+            int a8;
+            int a9;
+            int a10;
+            int a11;
+            int a12;
+            int a13;
+            int a14;
+            int a15;
+            int a16;
+            int a17;
+            int a18;
+            int a19;
+            int a20;
+            int sum;
+            a1 = 1;  a2 = 2;  a3 = 3;  a4 = 4;  a5 = 5;
+            a6 = 6;  a7 = 7;  a8 = 8;  a9 = 9;  a10 = 10;
+            a11 = 11; a12 = 12; a13 = 13; a14 = 14; a15 = 15;
+            a16 = 16; a17 = 17; a18 = 18; a19 = 19; a20 = 20;
+            sum = a1+a2+a3+a4+a5+a6+a7+a8+a9+a10+a11+a12+a13+a14+a15+a16+a17+a18+a19+a20;
+            return sum;
+        }
+        
+        // Global variable to demonstrate shadowing.
+        int factor;
+        void initFactor() {
+            factor = 3;
+        }
+        
+        int main() {
+            struct Matrix m;
+            int i;
+            int j;
+            int sum1;
+            int sum2;
+            // Fill the matrix with numbers 1 to 9.
+            i = 0;
+            while (i < 3) {
+                j = 0;
+                while (j < 3) {
+                    m.data[i][j] = i * 3 + j + 1;
+                    j = j + 1;
+                }
+                i = i + 1;
+            }
+            sum1 = sumMatrixRec(m, 0, 0);  // 1+2+...+9 = 45
+            print_i(sum1);
+            print_c(',');
+            modifyMatrix(&m);              // Each element doubled; new sum = 90
+            sum2 = sumMatrixRec(m, 0, 0);
+            print_i(sum2);
+            print_c(',');
+            print_i(heavyCalc());          // heavyCalc returns 210
+            print_c(',');
+            initFactor();                  // Sets global factor to 3
+            print_i(factor);
+            print_c(',');
+            {
+                int factor;               // Local shadowing of global 'factor'
+                factor = 5;
+                print_i(factor);
+                print_c(',');
+            }
+            print_i(factor);               // Global 'factor' remains 3
+            return 0;
+        }
+        """;
+        // Expected output:
+        // Matrix sum before modification: 45
+        // Matrix sum after modification: 90
+        // heavyCalc returns: 210
+        // Global factor: 3, inner block: 5, global factor: 3
+        // Overall: "45,90,210,3,5,3"
+        String expectedOutput = "45,90,210,3,5,3";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Ultimate integration with multi-dimensional arrays and structs test failed");
+    }
+
+    @Test
+    public void testUltraLongControlFlowStress() throws IOException, InterruptedException {
+        String code = """
+        // Function that forces register spilling by declaring many variables.
+        int registerStress() {
+            int a1;
+            int a2;
+            int a3;
+            int a4;
+            int a5;
+            int a6;
+            int a7;
+            int a8;
+            int a9;
+            int a10;
+            int a11;
+            int a12;
+            int a13;
+            int a14;
+            int a15;
+            int a16;
+            int a17;
+            int a18;
+            int a19;
+            int a20;
+            int sum;
+            a1 = 1;
+            a2 = 2;
+            a3 = 3;
+            a4 = 4;
+            a5 = 5;
+            a6 = 6;
+            a7 = 7;
+            a8 = 8;
+            a9 = 9;
+            a10 = 10;
+            a11 = 11;
+            a12 = 12;
+            a13 = 13;
+            a14 = 14;
+            a15 = 15;
+            a16 = 16;
+            a17 = 17;
+            a18 = 18;
+            a19 = 19;
+            a20 = 20;
+            sum = a1 + a2 + a3 + a4 + a5 + a6 + a7 + a8 + a9 + a10 +
+                  a11 + a12 + a13 + a14 + a15 + a16 + a17 + a18 + a19 + a20;
+            return sum;
+        }
+        
+        // Function with deep nested if-else and loop constructs.
+        int complexLogic(int x) {
+            int result;
+            int i;
+            int temp;
+            result = x;
+            if (x - 50) {
+                result = result + 100;
+            } else {
+                result = result - 50;
+            }
+            {
+                int x_shadow;
+                x_shadow = result * 2;
+                if (x_shadow - 10) {
+                    result = result + x_shadow;
+                } else {
+                    result = result - x_shadow;
+                }
+            }
+            i = 0;
+            while (i < 5) {
+                temp = i * 3;
+                if (temp - 5) {
+                    result = result + temp;
+                } else {
+                    result = result - temp;
+                }
+                i = i + 1;
+            }
+            return result;
+        }
+        
+        // Define a struct with an integer, an array, and a char.
+        struct BigData {
+            int id;
+            int values[10];
+            char tag;
+        };
+        
+        // Function that processes a BigData struct.
+        struct BigData processBigData(struct BigData d) {
+            int i;
+            i = 0;
+            while (i < 10) {
+                d.values[i] = d.values[i] * (i + 2);
+                i = i + 1;
+            }
+            if (d.id - 100) {
+                d.id = d.id + 50;
+            } else {
+                d.id = d.id - 20;
+            }
+            return d;
+        }
+        
+        // Recursively sum numbers from n down to 0.
+        int recursiveSum(int n) {
+            if (n) {
+                return n + recursiveSum(n - 1);
+            } else {
+                return 0;
+            }
+        }
+        
+        // Function operating on a 3x3 matrix.
+        int matrixCalc() {
+            int m[3][3];
+            int i;
+            int j;
+            int sum;
+            i = 0;
+            while (i < 3) {
+                j = 0;
+                while (j < 3) {
+                    m[i][j] = i * 3 + j + 1;
+                    j = j + 1;
+                }
+                i = i + 1;
+            }
+            sum = 0;
+            i = 0;
+            while (i < 3) {
+                j = 0;
+                while (j < 3) {
+                    if (m[i][j] % 2) {
+                        sum = sum + m[i][j];
+                    } else {
+                        sum = sum - m[i][j];
+                    }
+                    j = j + 1;
+                }
+                i = i + 1;
+            }
+            return sum;
+        }
+        
+        // Function with additional nested loops and arithmetic operations.
+        int deepNestedCalculations(int a, int b, int c) {
+            int result;
+            int i;
+            int j;
+            int temp;
+            result = a + b;
+            {
+                int a_shadow;
+                a_shadow = result * c;
+                if (a_shadow - 100) {
+                    result = result + a_shadow;
+                } else {
+                    result = result - a_shadow;
+                }
+            }
+            i = 0;
+            while (i < 3) {
+                {
+                    j = 0;
+                    while (j < 3) {
+                        if ((i * j) - 2) {
+                            result = result + (i * j);
+                        } else {
+                            result = result - (i + j);
+                        }
+                        j = j + 1;
+                    }
+                }
+                i = i + 1;
+            }
+            return result;
+        }
+        
+        int main() {
+            int v1;
+            int v2;
+            struct BigData bd;
+            int k;
+            int rs;
+            int dnc;
+            int mc;
+            int finalResult;
+            v1 = registerStress();
+            v2 = complexLogic(42);
+            bd.id = 80;
+            k = 0;
+            while (k < 10) {
+                bd.values[k] = k + 1;
+                k = k + 1;
+            }
+            bd.tag = 'X';
+            bd = processBigData(bd);
+            rs = recursiveSum(5);
+            mc = matrixCalc();
+            dnc = deepNestedCalculations(3, 4, 5);
+            finalResult = v1 + v2 + bd.id + rs + mc + dnc;
+            
+            {
+                int blockFinal;
+                int temp;
+                blockFinal = 1000;
+                temp = blockFinal + 500;
+                print_i(temp);
+                print_c(',');
+                print_i(blockFinal);
+                print_c(',');
+            }
+            {
+                int blockFinal;
+                blockFinal = 300;
+                {
+                    int innerFinal;
+                    innerFinal = 400;
+                    print_i(innerFinal);
+                    print_c(',');
+                }
+                print_i(blockFinal);
+                print_c(',');
+            }
+            print_i(finalResult);
+            print_c(',');
+            print_i(v1);
+            print_c(',');
+            print_i(v2);
+            print_c(',');
+            print_i(bd.id);
+            print_c(',');
+            print_i(rs);
+            print_c(',');
+            print_i(mc);
+            print_c(',');
+            print_i(dnc);
+            print_c(',');
+            print_i(finalResult + v1 + v2);
+            return 0;
+        }
+        """;
+        String expectedOutput = "1500,1000,400,300,857,210,456,130,15,5,41,1523";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Ultra long control flow stress test failed");
+    }}

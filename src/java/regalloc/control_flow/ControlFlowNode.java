@@ -72,7 +72,9 @@ public class ControlFlowNode {
     public static void visitLastFirst(ControlFlowNode node, Callback callback) {
         visitLastFirst(node, callback, new HashSet<>());
     }
+
     private ControlFlowNode() {}
+
     public static ControlFlowNode create(AssemblyProgram.TextSection ts) {
         ControlFlowNode node = new ControlFlowNode();
         // increment idCount for text section

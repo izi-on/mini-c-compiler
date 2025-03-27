@@ -1,5 +1,6 @@
 package regalloc;
 
+import com.sun.source.tree.Tree;
 import gen.asm.*;
 import regalloc.control_flow.ControlFlowNode;
 import java.util.*;
@@ -33,9 +34,10 @@ public class GraphColouringRegAlloc implements AssemblyPass {
      * @return a map from register to int that represents a colour/label
      */
     public static Map<Register, Integer> labelWithKColours(Map<Register, Set<Register>> interferenceGraph, int k) {
-        Set<Register> unused = new HashSet<>(interferenceGraph.keySet());
+        TreeSet<Register> unused = new TreeSet<>(Comparator.comparing(Register::toString));
+        unused.addAll(interferenceGraph.keySet());
         Stack<Register> stack = new Stack<>();
-        Set<Register> spilled = new HashSet<>();
+        Set<Register> spilled = new TreeSet<>(Comparator.comparing(Register::toString));
         Map<Register, Integer> labels = new HashMap<>();
         while (unused.size() > 0) {
             // find a node with less than k neighbours
@@ -61,7 +63,7 @@ public class GraphColouringRegAlloc implements AssemblyPass {
         // assign colours
         while (!stack.isEmpty()) {
             Register node = stack.pop();
-            Set<Integer> usedColours = new HashSet<>();
+            Set<Integer> usedColours = new TreeSet<>();
             for (Register neighbour : interferenceGraph.get(node)) {
                 if (labels.containsKey(neighbour)) {
                     usedColours.add(labels.get(neighbour));
@@ -85,7 +87,7 @@ public class GraphColouringRegAlloc implements AssemblyPass {
     public static Map<Register, Set<Register>> getInterferenceGraph(Map<ControlFlowNode, Set<Register>> liveIn,
                                                   Map<ControlFlowNode, Set<Register>> liveOut) {
         // step 1: collect all variables
-        Set<Register> variables = new HashSet<>();
+        Set<Register> variables = new TreeSet<>(Comparator.comparing(Register::toString));
         Stream.concat(liveIn.keySet().stream(), liveOut.keySet().stream()).forEach(node -> {
             variables.addAll(node.uses());
             variables.addAll(node.defs());
@@ -93,7 +95,7 @@ public class GraphColouringRegAlloc implements AssemblyPass {
 
         // step 2: build the graph
         Map<Register, Set<Register>> interferenceGraph = new HashMap<>();
-        variables.forEach(v -> interferenceGraph.put(v, new HashSet<>()));
+        variables.forEach(v -> interferenceGraph.put(v, new TreeSet<>(Comparator.comparing(Register::toString))));
         Stream.concat(liveIn.values().stream(), liveOut.values().stream()).forEach(registers -> {
             for (Register r1 : registers) {
                 for (Register r2 : registers) {
@@ -111,8 +113,8 @@ public class GraphColouringRegAlloc implements AssemblyPass {
     public static final void livelinessAnalysis(ControlFlowNode entry, Map<ControlFlowNode, Set<Register>> liveIn,
                                                 Map<ControlFlowNode, Set<Register>> liveOut) {
         ControlFlowNode.visitLastFirst(entry, node -> {
-            liveIn.put(node, new HashSet<>());
-            liveOut.put(node, new HashSet<>());
+            liveIn.put(node, new TreeSet<>(Comparator.comparing(Register::toString)));
+            liveOut.put(node, new TreeSet<>(Comparator.comparing(Register::toString)));
         });
 
         // iterate until no change
@@ -121,7 +123,7 @@ public class GraphColouringRegAlloc implements AssemblyPass {
             changed.set(false);
             ControlFlowNode.visitLastFirst(entry, node -> {
                 // live out
-                Set<Register> newLiveOut = new HashSet<>();
+                Set<Register> newLiveOut = new TreeSet<>(Comparator.comparing(Register::toString));
                 for (ControlFlowNode succ : node.successors) {
                     newLiveOut.addAll(liveIn.get(succ));
                 }
@@ -132,7 +134,8 @@ public class GraphColouringRegAlloc implements AssemblyPass {
                 liveOut.put(node, newLiveOut);
 
                 // live in = uses() + (live out - defs())
-                Set<Register> newLiveIn = new HashSet<>(newLiveOut);
+                Set<Register> newLiveIn = new TreeSet<>(Comparator.comparing(Register::toString));
+                newLiveIn.addAll(newLiveOut);
                 newLiveIn.removeAll(node.defs());
                 newLiveIn.addAll(node.uses());
                 if (!(liveIn.get(node).equals(newLiveIn))) {
@@ -145,31 +148,12 @@ public class GraphColouringRegAlloc implements AssemblyPass {
 
     public static final ControlFlowNode buildControlFlowGraph(AssemblyProgram.TextSection textSection, List<AssemblyItem> items) {
         ControlFlowNode entry = ControlFlowNode.create(textSection);
-        Map<AssemblyItem, HashSet<Label>> itemLabelListMap = new IdentityHashMap<>();
+        Map<AssemblyItem, Set<Label>> itemLabelListMap = new IdentityHashMap<>();
         Map<AssemblyItem, ControlFlowNode> itemControlFlowNodeMap = new IdentityHashMap<>();
         Map<Label, ControlFlowNode> labelControlFlowNodeMap = new IdentityHashMap<>();
 
         // remove comments
         items = items.stream().filter(item -> !(item instanceof Comment)).collect(Collectors.toList());
-
-        // remove items that are: jump-and-link registers or jump registers (those are epilogues or function calls, irrelevant)
-        items = items.stream().filter(item -> {
-            if (item instanceof Instruction) {
-                Instruction i = (Instruction) item;
-                return switch (i) {
-                    case Instruction.Jump j -> {
-                        if (j.opcode.mnemonic.equals("jal")) {
-                            yield false;
-                        } else {
-                            yield true;
-                        }
-                    }
-                    case Instruction.JumpRegister jr -> false;
-                    default -> true;
-                };
-            }
-            return true;
-        }).collect(Collectors.toList());
 
         // first pass: map labels to control nodes
         List<Label> accumulatedLabels = new ArrayList<>(); // store labels, then set them to instruction
@@ -177,7 +161,9 @@ public class GraphColouringRegAlloc implements AssemblyPass {
             switch (item) {
                 case Label l -> {accumulatedLabels.add(l);}
                 default -> {
-                    itemLabelListMap.put(item, new HashSet<>(accumulatedLabels));
+                    TreeSet<Label> labels = new TreeSet<>(Comparator.comparing(Label::toString));
+                    labels.addAll(accumulatedLabels);
+                    itemLabelListMap.put(item, labels);
                     accumulatedLabels.clear();
                 }
             }
@@ -211,6 +197,8 @@ public class GraphColouringRegAlloc implements AssemblyPass {
             switch (item)  {
                 case Instruction.Jump j -> {
                     // clear both ways
+                    if (j.opcode.mnemonic.equals("jal"))
+                        break;
                     for (ControlFlowNode successor : currentNode.successors) {
                         successor.predecessors.remove(currentNode);
                     }
@@ -238,10 +226,13 @@ public class GraphColouringRegAlloc implements AssemblyPass {
                             targets.add(labelControlFlowNodeMap.get(ub.label));
                         }
                         case Instruction.Jump j -> {
+                            if (j.opcode.mnemonic.equals("jal"))
+                                break;
                             if (!labelControlFlowNodeMap.containsKey(j.label))
                                 throw new RuntimeException("Label not found: " + j.label);
                             targets.add(labelControlFlowNodeMap.get(j.label));
                         }
+                        case Instruction.JumpRegister jr -> {}
                         default -> {throw new RuntimeException("Unsupported control flow instruction");}
                     }
 
@@ -261,26 +252,26 @@ public class GraphColouringRegAlloc implements AssemblyPass {
     public static List<AssemblyItem> removeUselessItems(ControlFlowNode entry, List<AssemblyItem> items) {
 
         // convert this list to a deque
-        Map<ControlFlowNode, HashSet<ControlFlowNode>> nodeToDefinitions = new HashMap<>(); // maps the item and the registers used in it to the items that define them
-        Map<ControlFlowNode, HashSet<ControlFlowNode>> nodeUsedBy = new HashMap<>(); // maps the item (its definition) to other items that use it
+        Map<ControlFlowNode, TreeSet<ControlFlowNode>> nodeToDefinitions = new HashMap<>(); // maps the item and the registers used in it to the items that define them
+        Map<ControlFlowNode, TreeSet<ControlFlowNode>> nodeUsedBy = new HashMap<>(); // maps the item (its definition) to other items that use it
         Map<Register, ControlFlowNode> registerToNodeDefinition = new HashMap<>(); // maps the register to the item that defines it
-        HashSet<ControlFlowNode> sources = new HashSet<>(); // items that are sources, so they are useless (they are not used by any other item)
+        TreeSet<ControlFlowNode> sources = new TreeSet<>(Comparator.comparing(ControlFlowNode::id)); // items that are sources, so they are useless (they are not used by any other item)
 
         ControlFlowNode.visitWithMaxVisits(entry, 2, node -> {
             if (node.isInstruction()) {
-                nodeToDefinitions.computeIfAbsent(node, n -> new HashSet<>());
+                nodeToDefinitions.computeIfAbsent(node, n -> new TreeSet<>(Comparator.comparing(ControlFlowNode::id)));
 
                 node.uses().stream().forEach(reg -> { // iterate through all the registers being used in the instruction
                     Optional<ControlFlowNode> usedNode = Optional.ofNullable(registerToNodeDefinition.get(reg));
                     usedNode.ifPresent(presentUsedNode -> { // if the node being used is linked to a node
-                        nodeToDefinitions.computeIfAbsent(node, i -> new HashSet<>()).add(presentUsedNode);
+                        nodeToDefinitions.computeIfAbsent(node, i -> new TreeSet<>(Comparator.comparing(ControlFlowNode::id))).add(presentUsedNode);
                         nodeUsedBy.get(presentUsedNode).add(node);
                     });
                 });
 
                 if (node.defs().size() > 0) { // there is a definition
                     registerToNodeDefinition.put(node.defs().get(0), node);
-                    nodeUsedBy.computeIfAbsent(node, i -> new HashSet<>());
+                    nodeUsedBy.computeIfAbsent(node, i -> new TreeSet<>(Comparator.comparing(ControlFlowNode::id)));
                 }
             }
         });
@@ -413,6 +404,12 @@ public class GraphColouringRegAlloc implements AssemblyPass {
             // step 1.5: filter items
             List<AssemblyItem> filteredItems = removeUselessItems(controlFlowEntryNode, textSection.items);
 
+            // print the filtered items
+            System.out.println("_________________");
+            System.out.println("Filtered items");
+            filteredItems.forEach(System.out::println);
+            System.out.println("_________________");
+
             // step 2: liveliness analysis for the control flow graph
             Map<ControlFlowNode, Set<Register>> liveIn = new IdentityHashMap<>();
             Map<ControlFlowNode, Set<Register>> liveOut = new IdentityHashMap<>();
@@ -498,6 +495,8 @@ public class GraphColouringRegAlloc implements AssemblyPass {
                                 if (!r.isVirtual()) {
                                     return r;
                                 }
+                                System.out.println(insn);
+                                System.out.println(r);
                                 if (labelledRegisters.get(r) == -1) { // needs to be spilled
                                     if (insn.def() == r) { // if we are defining it, we can take any spiling reg
                                         return TEMP_SPILLING_REGISTERS.get(0);
