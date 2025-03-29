@@ -186,6 +186,10 @@ public class GraphColouringRegAlloc implements AssemblyPass {
             }
         }
 
+        if (accumulatedLabels.size() > 0) {
+            throw new RuntimeException("Labels not attached to any instruction");
+        }
+
         // remove labels, don't need them anymore
         items = items.stream().filter(item -> !(item instanceof Label)).collect(Collectors.toList());
 
@@ -559,4 +563,5 @@ public class GraphColouringRegAlloc implements AssemblyPass {
         });
         return newProg;
 
-    }}
+    }
+}
