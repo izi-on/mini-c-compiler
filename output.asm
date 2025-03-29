@@ -655,15 +655,15 @@ addi $t2,$sp,0
 # LOADING ARG: INT
 # GETTING  VALUE
 # Original instruction: addi v7,$zero,42
-addi $t1,$zero,42
+addi $t3,$zero,42
 # Original instruction: addi v8,$zero,43
 addi $t0,$zero,43
 # Original instruction: slt v10,v7,v8
-slt $t3,$t1,$t0
+slt $t1,$t3,$t0
 # Original instruction: slt v11,v8,v7
-slt $t0,$t0,$t1
+slt $t0,$t0,$t3
 # Original instruction: or v12,v10,v11
-or $t1,$t3,$t0
+or $t1,$t1,$t0
 # Original instruction: addi v13,$zero,1
 addi $t0,$zero,1
 # Original instruction: sub v9,v13,v12
@@ -685,12 +685,12 @@ jal print_i
 # BACK FROM FUNCTION
 # Return statement start
 # Original instruction: addi v16,$zero,0
-addi $t1,$zero,0
+addi $t0,$zero,0
 # Original instruction: addiu v17,$fp,0
-addiu $t0,$fp,0
+addiu $t1,$fp,0
 # Loading from v16 from reg into v17
 # Original instruction: sw v16,0(v17)
-sw $t1,0($t0)
+sw $t0,0($t1)
 # Original instruction: jal mainEND
 jal mainEND
 # Return statement end

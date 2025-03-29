@@ -35,6 +35,7 @@ public class ControlFlowNode {
         for (ControlFlowNode succ : node.successors) {
             visitWithMaxVisits(succ, callback, maxVisits, visited);
         }
+        visited.put(node, visited.get(node) - 1);
     }
 
     public static void visitWithMaxVisits(ControlFlowNode node, int maxVisits,Callback callback) {
@@ -46,9 +47,9 @@ public class ControlFlowNode {
         switch (item) {
             case Instruction i -> {
                 return Optional.ofNullable(i.
-                        uses()
-                        .stream()
-                        .filter(ControlFlowNode::RegFilter).collect(Collectors.toList()))
+                                uses()
+                                .stream()
+                                .filter(ControlFlowNode::RegFilter).collect(Collectors.toList()))
                         .orElse(new ArrayList<>());
             }
             default -> {
@@ -72,9 +73,7 @@ public class ControlFlowNode {
     public static void visitLastFirst(ControlFlowNode node, Callback callback) {
         visitLastFirst(node, callback, new HashSet<>());
     }
-
     private ControlFlowNode() {}
-
     public static ControlFlowNode create(AssemblyProgram.TextSection ts) {
         ControlFlowNode node = new ControlFlowNode();
         // increment idCount for text section
