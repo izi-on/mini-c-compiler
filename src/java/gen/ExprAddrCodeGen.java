@@ -88,7 +88,6 @@ public class ExprAddrCodeGen extends CodeGen {
 
             case FieldAccessExpr fa -> {
                 // get the offset of the field
-                System.out.println("Getting field " + fa.field + " for " + fa.struct);
                 StructType strctType = (StructType) fa.struct.type;
                 Decl fieldDecl = StructUtils.getDeclOfField(strctType, fa.field).orElseThrow(() -> new IllegalStateException("field decl access not associated with decl in struct decl"));
                 int fieldOffset = MemContext

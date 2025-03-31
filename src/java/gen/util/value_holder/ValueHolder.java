@@ -50,7 +50,6 @@ public abstract class ValueHolder {
 
         @Override
         public void loadToTargetAddr() {
-            System.out.println("Loading from reg of type " + nodeType + " of access type " + AccessTypeGetter.fromAlignmentSize(nodeType).Save());
             AssemblyProgram.TextSection ts = asmProg.getCurrentTextSection();
             ts.emit("Loading from " + regVal + " from reg into " + targetAddr);
             ts.emit(AccessTypeGetter.fromAlignmentSize(nodeType).Save(), regVal, targetAddr, 0);
@@ -80,8 +79,6 @@ public abstract class ValueHolder {
 
         @Override
         public void loadToTargetAddr() {
-            System.out.println("Loading from mem to target addr type: " + nodeType
-                    + " of size " + TypeSizeGetter.getSize(nodeType));
             AssemblyProgram.TextSection ts = asmProg.getCurrentTextSection();
             ts.emit("");  // empty line for readability
             ts.emit("Loading from " + srcAddr + " from stack into " + targetAddr);

@@ -417,34 +417,76 @@ public class GraphColouringRegAlloc implements AssemblyPass {
             AssemblyProgram.TextSection newTextSection = newProg.emitNewTextSection();
 
 
-            // step 1: build cfg
-            ControlFlowNode controlFlowEntryNode = GraphColouringRegAlloc.buildControlFlowGraph(textSection, textSection.items);
+            List<AssemblyItem> filteredItems = textSection.items;
 
+// ____________________ DEAD INSTRUCTION REMOVAL RECURSIVE _______________________
+//            // step 1: build cfg
+//            ControlFlowNode controlFlowEntryNode = GraphColouringRegAlloc.buildControlFlowGraph(textSection, textSection.items);
+//
 //            System.out.println("____________________");
 //            System.out.println("Before filter:");
 //            textSection.items.forEach(System.out::println);
 //            System.out.println("____________________");
+//
+//            // step 1.33333: filter items
+//            System.out.println("Filtering items");
+//            filteredItems = removeUselessItems(controlFlowEntryNode, textSection.items);
+//
+//            // step 1.66666 build new control flow graph
+//            System.out.println("Building new control flow graph");
+//            controlFlowEntryNode = GraphColouringRegAlloc.buildControlFlowGraph(newTextSection, filteredItems);
+//
+//            // step 2: liveliness analysis for the control flow graph
+//            Map<ControlFlowNode, Set<Register>> liveIn = new HashMap<>();
+//            Map<ControlFlowNode, Set<Register>> liveOut = new HashMap<>();
+//            GraphColouringRegAlloc.livelinessAnalysis(controlFlowEntryNode, liveIn, liveOut);
+// ________________________________________________________________________________
 
-            // step 1.33333: filter items
-            List<AssemblyItem> filteredItems = removeUselessItems(controlFlowEntryNode, textSection.items);
+// __________________ LIVELINESS DEAD INSTRUCTION REMOVAL _______________________
+            Map<ControlFlowNode, Set<Register>> liveIn = new HashMap<>();
+            Map<ControlFlowNode, Set<Register>> liveOut = new HashMap<>();
 
-//            System.out.println("____________________");
-//            System.out.println("After filter:");
-//            filteredItems.forEach(System.out::println);
-//            System.out.println("____________________");
+            boolean changed = true;
+            while (changed) {
+                changed = false;
+                // step 1: build cfg
+                ControlFlowNode controlFlowEntryNode = GraphColouringRegAlloc.buildControlFlowGraph(textSection, filteredItems);
 
-//            System.out.println("____________________");
-//            System.out.println("Control Flow graph:");
-//            new ControlFlowNodePrinter().visit(controlFlowEntryNode);
-//            System.out.println("____________________");
+                // step 2: liveliness analysis for the control flow graph
+                liveIn = new HashMap<>();
+                liveOut = new HashMap<>();
+                GraphColouringRegAlloc.livelinessAnalysis(controlFlowEntryNode, liveIn, liveOut);
 
-            // step 1.66666 build new control flow graph
-            controlFlowEntryNode = GraphColouringRegAlloc.buildControlFlowGraph(newTextSection, filteredItems);
+                // check for dead registers
+                Set<Register> definedAndNotUsedRegisters = new HashSet<>();
+                ControlFlowNode.visitLastFirst(controlFlowEntryNode, node -> {
+                    definedAndNotUsedRegisters.addAll(node.defs());
+                });
+                Map<ControlFlowNode, Set<Register>> allLiveliness = new HashMap<>();
+                allLiveliness.putAll(liveIn);
+                allLiveliness.putAll(liveOut);
+                allLiveliness.forEach((node, registers) -> {
+                    definedAndNotUsedRegisters.removeAll(registers);
+                });
 
-            // step 2: liveliness analysis for the control flow graph
-            Map<ControlFlowNode, Set<Register>> liveIn = new IdentityHashMap<>();
-            Map<ControlFlowNode, Set<Register>> liveOut = new IdentityHashMap<>();
-            GraphColouringRegAlloc.livelinessAnalysis(controlFlowEntryNode, liveIn, liveOut);
+                // if there are dead registers, remove them
+                if (definedAndNotUsedRegisters.size() > 0) {
+                    changed = true;
+                }
+//                System.out.println("Dead registers: " + definedAndNotUsedRegisters);
+                filteredItems = filteredItems.stream().filter(item -> {
+                    if (item instanceof Instruction insn) {
+                        if (insn.def() != null && definedAndNotUsedRegisters.contains(insn.def())) {
+                            return false;
+                        }
+                    }
+                    return true;
+                }).collect(Collectors.toList());
+//                System.out.println("__________________-");
+//                filteredItems.forEach(System.out::println);
+//                System.out.println("__________________-");
+            }
+// ________________________________________________________________________________
 
             // step 3: interference graph
             Map<Register, Set<Register>> interferenceGraph = GraphColouringRegAlloc.getInterferenceGraph(liveIn ,liveOut);

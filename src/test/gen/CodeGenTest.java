@@ -27,7 +27,7 @@ import java.nio.file.Path;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class CodeGenTest {
-    private String runCode(String code) throws IOException, InterruptedException {
+    String runCode(String code) throws IOException, InterruptedException {
         Path tempFile = Files.createTempFile("temp", ".tmp");
         Files.write(tempFile, code.getBytes(StandardCharsets.UTF_8));
         try {
