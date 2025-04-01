@@ -238,19 +238,16 @@ public class GraphColouringRegAlloc implements AssemblyPass {
                     List<ControlFlowNode> targets = new ArrayList<>();
                     switch (controlFlow) {
                         case Instruction.BinaryBranch bb -> {
-                            if (!labelControlFlowNodeMap.containsKey(bb.label))
-                                throw new RuntimeException("Label not found: " + bb.label);
-                            targets.add(labelControlFlowNodeMap.get(bb.label));
+                            if (labelControlFlowNodeMap.containsKey(bb.label))
+                                targets.add(labelControlFlowNodeMap.get(bb.label));
                         }
                         case Instruction.UnaryBranch ub -> {
-                            if (!labelControlFlowNodeMap.containsKey(ub.label))
-                                throw new RuntimeException("Label not found: " + ub.label);
-                            targets.add(labelControlFlowNodeMap.get(ub.label));
+                            if (labelControlFlowNodeMap.containsKey(ub.label))
+                                targets.add(labelControlFlowNodeMap.get(ub.label));
                         }
                         case Instruction.Jump j -> {
-                            if (!labelControlFlowNodeMap.containsKey(j.label))
-                                throw new RuntimeException("Label not found: " + j.label);
-                            targets.add(labelControlFlowNodeMap.get(j.label));
+                            if (labelControlFlowNodeMap.containsKey(j.label))
+                                targets.add(labelControlFlowNodeMap.get(j.label));
                         }
                         default -> {throw new RuntimeException("Unsupported control flow instruction");}
                     }
