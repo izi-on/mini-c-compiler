@@ -14,19 +14,58 @@ public class GraphColouringRegAlloc implements AssemblyPass {
     public static final GraphColouringRegAlloc INSTANCE = new GraphColouringRegAlloc();
 
     public static final List<Register> AVAILABLE_REGISTERS = List.of(
-            Register.Arch.t0, Register.Arch.t1, Register.Arch.t2, Register.Arch.t3, Register.Arch.t4, Register.Arch.t5,
-            Register.Arch.t6, Register.Arch.t7, Register.Arch.t8, Register.Arch.t9, Register.Arch.s0, Register.Arch.s1,
-            Register.Arch.s2, Register.Arch.s3, Register.Arch.s4, Register.Arch.s5
+            Register.Arch.t0, Register.Arch.t1, Register.Arch.t2, Register.Arch.t3, Register.Arch.t4,
+            Register.Arch.t5, Register.Arch.t6, Register.Arch.t7, Register.Arch.t8, Register.Arch.t9,
+            Register.Arch.s0, Register.Arch.s1, Register.Arch.s2, Register.Arch.s3, Register.Arch.s4,
+            Register.Arch.s5, Register.Arch.s6, Register.Arch.s7
     );
 
-    public static final List<Register> TEMP_SPILLING_REGISTERS = List.of(
-            Register.Arch.s6, Register.Arch.s7
-    );
 
-    static {
-        assert TEMP_SPILLING_REGISTERS.size() >= 2;
+//    public static final List<Register> AVAILABLE_REGISTERS = List.of(
+//            Register.Arch.t0, Register.Arch.t1
+//    );
+
+
+    public static List<AssemblyItem> spillRegisterWithVirtual(Map<Register, Label> vrMap, List<AssemblyItem> items, Register regToSpill, Set<Register> registersUsedForSpilling) {
+        // create a data label for the register
+        Label label = Label.create("spilled_" + regToSpill);
+        vrMap.put(regToSpill, label);
+
+        List<AssemblyItem> newItems = new ArrayList<>();
+        for (AssemblyItem item : items) {
+            // guard statements
+            if (!(item instanceof Instruction insn)) {
+                newItems.add(item);
+                continue;
+            }
+            if (insn.registers().stream().noneMatch(r -> regToSpill.equals(r))) {
+                newItems.add(item);
+                continue;
+            }
+            // if here, item uses the register to be spilled
+
+            // item uses uses() the register to be spilled
+            List<AssemblyItem> toAdd = new ArrayList<>();
+            Register valueHolder = Register.Virtual.create();
+            if (insn.uses().contains(regToSpill)) { // register is being used to define another register
+                newItems.add(new Instruction.LoadAddress(valueHolder, label));
+                newItems.add(new Instruction.Load(OpCode.LW, valueHolder, valueHolder, 0));
+                registersUsedForSpilling.add(valueHolder);
+            }
+
+            // item defines def() the register to be spilled
+            if (insn.def() != null && insn.def().equals(regToSpill)) {
+                Register addrHolder = Register.Virtual.create();
+                toAdd.add(new Instruction.LoadAddress(addrHolder, label));
+                toAdd.add(new Instruction.Store(OpCode.SW, valueHolder, addrHolder, 0));
+                registersUsedForSpilling.addAll(List.of(addrHolder, valueHolder));
+            }
+
+            newItems.add(insn.rebuild(Map.of(regToSpill, valueHolder)));
+            newItems.addAll(toAdd);
+        }
+        return newItems;
     }
-
 
     /**
      * If some nodes are labelled with -1, that means that they must be spilled.
@@ -34,10 +73,9 @@ public class GraphColouringRegAlloc implements AssemblyPass {
      * @param k
      * @return a map from register to int that represents a colour/label
      */
-    public static Map<Register, Integer> labelWithKColours(Map<Register, Set<Register>> interferenceGraph, int k) {
+    public static Map<Register, Integer> labelWithKColours(Map<Register, Set<Register>> interferenceGraph, Set<Register> regsUsedForSpilling, List<Register> spilled, int k) {
         Set<Register> unused = new HashSet<>(interferenceGraph.keySet());
         Stack<Register> stack = new Stack<>();
-        Set<Register> spilled = new HashSet<>();
         Map<Register, Integer> labels = new HashMap<>();
         while (unused.size() > 0) {
             // find a node with less than k neighbours
@@ -49,8 +87,20 @@ public class GraphColouringRegAlloc implements AssemblyPass {
             if (node.isPresent()) {
                 stack.add(node.get());
             } else { // otherwise, find a node with highest connectivity to spill
-                node = unused.stream().sorted(Comparator.comparingInt(reg -> -(int)interferenceGraph.get(reg).stream().filter(regf -> unused.contains(regf)).count())).findFirst();
+                node = unused
+                    .stream()
+                    .sorted(
+                            Comparator.comparingInt(reg ->
+                                -(int)interferenceGraph.get(reg)
+                                .stream()
+                                .filter(regf -> unused.contains(regf))
+                                .count()
+                            )
+                    )
+                    .filter(regf -> !regsUsedForSpilling.contains(regf))
+                    .findFirst();
                 spilled.add(node.get());
+                return Map.of();
             }
             unused.remove(node.get());
         }
@@ -75,7 +125,7 @@ public class GraphColouringRegAlloc implements AssemblyPass {
             colours.addAll(usedColours);
         }
 
-        // for spilled nodes, assign k+1
+        // for spilled nodes, assign -1
         for (Register node : spilled) {
             labels.put(node, -1);
         }
@@ -413,90 +463,85 @@ public class GraphColouringRegAlloc implements AssemblyPass {
         program.textSections.forEach(textSection -> {
             AssemblyProgram.TextSection newTextSection = newProg.emitNewTextSection();
 
-
-            List<AssemblyItem> filteredItems = textSection.items;
-
-// ____________________ DEAD INSTRUCTION REMOVAL RECURSIVE _______________________
-//            // step 1: build cfg
-//            ControlFlowNode controlFlowEntryNode = GraphColouringRegAlloc.buildControlFlowGraph(textSection, textSection.items);
-//
-//            System.out.println("____________________");
-//            System.out.println("Before filter:");
-//            textSection.items.forEach(System.out::println);
-//            System.out.println("____________________");
-//
-//            // step 1.33333: filter items
-//            System.out.println("Filtering items");
-//            filteredItems = removeUselessItems(controlFlowEntryNode, textSection.items);
-//
-//            // step 1.66666 build new control flow graph
-//            System.out.println("Building new control flow graph");
-//            controlFlowEntryNode = GraphColouringRegAlloc.buildControlFlowGraph(newTextSection, filteredItems);
-//
-//            // step 2: liveliness analysis for the control flow graph
-//            Map<ControlFlowNode, Set<Register>> liveIn = new HashMap<>();
-//            Map<ControlFlowNode, Set<Register>> liveOut = new HashMap<>();
-//            GraphColouringRegAlloc.livelinessAnalysis(controlFlowEntryNode, liveIn, liveOut);
-// ________________________________________________________________________________
+            List<AssemblyItem> filteredItems = textSection.items; // easier naming
 
 // __________________ LIVELINESS DEAD INSTRUCTION REMOVAL _______________________
             Map<ControlFlowNode, Set<Register>> liveIn = new HashMap<>();
             Map<ControlFlowNode, Set<Register>> liveOut = new HashMap<>();
+            Set<Register> registersUsedForSpilling = new HashSet<>();
+            Map<Register, Label> vrMap = new HashMap<>(); // map from virtual register to label
+            Map<Register, Integer> labelledRegisters = new HashMap<>();
+            boolean hadSpilledVar;
+            do {
+                boolean changed = true;
+                while (changed) {
+                    changed = false;
+                    // step 1: build cfg
+                    ControlFlowNode controlFlowEntryNode = GraphColouringRegAlloc.buildControlFlowGraph(textSection, filteredItems);
 
-            boolean changed = true;
-            while (changed) {
-                changed = false;
-                // step 1: build cfg
-                ControlFlowNode controlFlowEntryNode = GraphColouringRegAlloc.buildControlFlowGraph(textSection, filteredItems);
+                    // step 2: liveliness analysis for the control flow graph
+                    liveIn = new HashMap<>();
+                    liveOut = new HashMap<>();
+                    GraphColouringRegAlloc.livelinessAnalysis(controlFlowEntryNode, liveIn, liveOut);
 
-                // step 2: liveliness analysis for the control flow graph
-                liveIn = new HashMap<>();
-                liveOut = new HashMap<>();
-                GraphColouringRegAlloc.livelinessAnalysis(controlFlowEntryNode, liveIn, liveOut);
+                    // check for dead registers
+                    Set<Register> definedAndNotUsedRegisters = new HashSet<>();
+                    ControlFlowNode.visitLastFirst(controlFlowEntryNode, node -> {
+                        definedAndNotUsedRegisters.addAll(node.defs());
+                    });
+                    Map<ControlFlowNode, Set<Register>> allLiveliness = new HashMap<>();
+                    allLiveliness.putAll(liveIn);
+                    allLiveliness.putAll(liveOut);
+                    allLiveliness.forEach((node, registers) -> {
+                        definedAndNotUsedRegisters.removeAll(registers);
+                    });
 
-                // check for dead registers
-                Set<Register> definedAndNotUsedRegisters = new HashSet<>();
-                ControlFlowNode.visitLastFirst(controlFlowEntryNode, node -> {
-                    definedAndNotUsedRegisters.addAll(node.defs());
-                });
-                Map<ControlFlowNode, Set<Register>> allLiveliness = new HashMap<>();
-                allLiveliness.putAll(liveIn);
-                allLiveliness.putAll(liveOut);
-                allLiveliness.forEach((node, registers) -> {
-                    definedAndNotUsedRegisters.removeAll(registers);
-                });
-
-                // if there are dead registers, remove them
-                if (definedAndNotUsedRegisters.size() > 0) {
-                    changed = true;
-                }
-//                System.out.println("Dead registers: " + definedAndNotUsedRegisters);
-                filteredItems = filteredItems.stream().filter(item -> {
-                    if (item instanceof Instruction insn) {
-                        if (insn.def() != null && definedAndNotUsedRegisters.contains(insn.def())) {
-                            return false;
-                        }
+                    // if there are dead registers, remove them
+                    if (definedAndNotUsedRegisters.size() > 0) {
+                        changed = true;
                     }
-                    return true;
-                }).collect(Collectors.toList());
-//                System.out.println("__________________-");
-//                filteredItems.forEach(System.out::println);
-//                System.out.println("__________________-");
-            }
-// ________________________________________________________________________________
+    //                System.out.println("Dead registers: " + definedAndNotUsedRegisters);
+                    filteredItems = filteredItems.stream().filter(item -> {
+                        if (item instanceof Instruction insn) {
+                            if (insn.def() != null && definedAndNotUsedRegisters.contains(insn.def())) {
+                                return false;
+                            }
+                        }
+                        return true;
+                    }).collect(Collectors.toList());
+    //                System.out.println("__________________-");
+    //                filteredItems.forEach(System.out::println);
+    //                System.out.println("__________________-");
+                }
+    // ________________________________________________________________________________
 
-            // step 3: interference graph
-            Map<Register, Set<Register>> interferenceGraph = GraphColouringRegAlloc.getInterferenceGraph(liveIn ,liveOut);
+                // step 3: interference graph
+                Map<Register, Set<Register>> interferenceGraph = GraphColouringRegAlloc.getInterferenceGraph(liveIn ,liveOut);
 
-            // step 4: colour the graph
-            Map<Register, Integer> labelledRegisters = GraphColouringRegAlloc.labelWithKColours(interferenceGraph, AVAILABLE_REGISTERS.size());
+                // step 4: colour the graph
+                labelledRegisters.clear();
+                List<Register> toBeSpilled = new ArrayList<>();
+                labelledRegisters.putAll(GraphColouringRegAlloc.labelWithKColours(interferenceGraph, registersUsedForSpilling, toBeSpilled, AVAILABLE_REGISTERS.size()));
+
+                // check if there is a variable that needs to be spilled
+                if (!toBeSpilled.isEmpty()) {
+//                    System.out.println("____________-");
+//                    System.out.println("Spilled variable:");
+//                    System.out.println(toBeSpilled.get(0));
+//                    System.out.println("Registers that cannot be spilled:");
+//                    System.out.println(registersUsedForSpilling.stream().sorted(Comparator.comparing(Register::toString)).collect(Collectors.toList()));
+//                    System.out.println("____________-");
+                    hadSpilledVar = true;
+                    Register regToBeSpilled = toBeSpilled.get(0);
+                    filteredItems = spillRegisterWithVirtual(vrMap, filteredItems, regToBeSpilled, registersUsedForSpilling);
+                } else {
+                    hadSpilledVar = false;
+                }
+            } while (hadSpilledVar);
 
             // step 4.5: create a label for each register to be spilled in the data section
-            Map<Register, Label> vrMap = new HashMap<>();
-            labelledRegisters.entrySet().stream().filter(e -> e.getValue() == -1).forEach(e -> {
-                Label label = Label.create("spilled_" + e.getKey());
-                vrMap.put(e.getKey(), label);
-                newProg.dataSection.emit(label);
+            vrMap.forEach((r, l) -> {
+                newProg.dataSection.emit(l);
                 newProg.dataSection.emit(new Directive("space " + 4));
             });
 
@@ -509,7 +554,6 @@ public class GraphColouringRegAlloc implements AssemblyPass {
             Collections.reverse(labelToVisitInReverseOrder);
             List<Register> registersToVisitInOrder = new HashSet<>(labelledRegisters.values()).stream()
                     .filter(e -> e != -1)
-//                    .sorted((e1, e2) -> e1.getValue() - e2.getValue())
                     .map(e -> AVAILABLE_REGISTERS.get(e))
                     .collect(Collectors.toList());
             List<Register> registersToVisitInReverseOrder = new ArrayList<>(registersToVisitInOrder);
@@ -522,16 +566,25 @@ public class GraphColouringRegAlloc implements AssemblyPass {
                     case Instruction insn -> {
                         if (insn == Instruction.Nullary.pushRegisters) {
                             newTextSection.emit("Original instruction: pushRegisters");
+                            Register tempRegister = Register.Arch.t0; // store t0 on stack and use it for pushing spilled regs
+
+                            int countOffset = 0;
+                            newTextSection.emit(OpCode.ADDIU, Register.Arch.sp, Register.Arch.sp, -4);
+                            newTextSection.emit(OpCode.SW, tempRegister, Register.Arch.sp, 0);
+
                             for (Label l : labelsToVisitInOrder) { // first, push the spilled registers
                                 // load content of memory at label into $t0
-                                Register tempRegister = TEMP_SPILLING_REGISTERS.get(0);
                                 newTextSection.emit(OpCode.LA, tempRegister, l);
                                 newTextSection.emit(OpCode.LW, tempRegister, tempRegister, 0);
 
                                 // push $t0 onto stack
                                 newTextSection.emit(OpCode.ADDIU, Register.Arch.sp, Register.Arch.sp, -4);
                                 newTextSection.emit(OpCode.SW, tempRegister, Register.Arch.sp, 0);
+                                countOffset -= 4;
                             }
+
+                            newTextSection.emit(OpCode.LW, tempRegister, Register.Arch.sp, -countOffset); // get back from stack
+
                             newTextSection.emit("Registers:");
                             for (Register r : registersToVisitInOrder) {
                                 newTextSection.emit(OpCode.ADDIU, Register.Arch.sp, Register.Arch.sp, -4);
@@ -546,37 +599,35 @@ public class GraphColouringRegAlloc implements AssemblyPass {
                                 newTextSection.emit(OpCode.LW, r, Register.Arch.sp, 0);
                                 newTextSection.emit(OpCode.ADDIU, Register.Arch.sp, Register.Arch.sp, 4);
                             }
+
+                            Register tempRegister = Register.Arch.t0; // use for temporarily popping from stack
+                            Register tempRegister2 = Register.Arch.t1; // use for temporarily popping from stack
+
+                            int countOffset = 0;
+                            newTextSection.emit(OpCode.SW, tempRegister, Register.Arch.sp, -4);
+                            newTextSection.emit(OpCode.SW, tempRegister2, Register.Arch.sp, -8);
+
                             newTextSection.emit("Labels:");
                             for (Label l : labelToVisitInReverseOrder) {
-                                Register tempRegister = TEMP_SPILLING_REGISTERS.get(0);
-                                Register tempRegister2 = TEMP_SPILLING_REGISTERS.get(1);
                                 // pop from stack into $t0
                                 newTextSection.emit(OpCode.LW, tempRegister, Register.Arch.sp, 0);
                                 newTextSection.emit(OpCode.ADDIU, Register.Arch.sp, Register.Arch.sp, 4);
+                                countOffset += 4;
 
                                 // store content of $t0 in memory at label
                                 newTextSection.emit(OpCode.LA, tempRegister2, l);
                                 newTextSection.emit(OpCode.SW, tempRegister, tempRegister2, 0);
                             }
+
+                            newTextSection.emit(OpCode.LW, tempRegister, Register.Arch.sp, -countOffset - 4); // get back from stack
+                            newTextSection.emit(OpCode.LW, tempRegister2, Register.Arch.sp, -countOffset - 8); // get back from stack
                         } else {
-                            List<Register> tempReg = new ArrayList<>(TEMP_SPILLING_REGISTERS);
                             List<Register> usedRegisters = insn.registers();
                             List<Register> newRegisters = usedRegisters.stream().map(r -> {
                                 if (!r.isVirtual()) {
                                     return r;
                                 }
-                                if (labelledRegisters.get(r) == -1) { // needs to be spilled
-                                    if (insn.def() == r) { // if we are defining it, we can take any spiling reg
-                                        return TEMP_SPILLING_REGISTERS.get(0);
-                                    }
-                                    Register tmp = tempReg.remove(0);
-                                    Label label = vrMap.get(r);
-                                    newTextSection.emit(OpCode.LA, tmp, label);
-                                    newTextSection.emit(OpCode.LW, tmp, tmp, 0);
-                                    return tmp;
-                                } else {
-                                    return AVAILABLE_REGISTERS.get(labelledRegisters.get(r));
-                                }
+                                return AVAILABLE_REGISTERS.get(labelledRegisters.get(r));
                             }).collect(Collectors.toList());
 
                             Map<Register, Register> vrToAr = new HashMap<>();
@@ -587,12 +638,6 @@ public class GraphColouringRegAlloc implements AssemblyPass {
                             Instruction newInsn = insn.rebuild(vrToAr);
                             newTextSection.emit("Original instruction: " + insn);
                             newTextSection.emit(newInsn);
-                            if (insn.def() != null && insn.def().isVirtual() && labelledRegisters.get(insn.def()) == -1) { // if we are defining the virtual register, we need to store it back
-                                Register tmp = (newInsn.def() != TEMP_SPILLING_REGISTERS.get(0)) ? TEMP_SPILLING_REGISTERS.get(0) : TEMP_SPILLING_REGISTERS.get(1);
-                                Label label = vrMap.get(insn.def());
-                                newTextSection.emit(OpCode.LA, tmp, label);
-                                newTextSection.emit(OpCode.SW, newInsn.def(), tmp, 0);
-                            }
                         }
                     }
                 }
