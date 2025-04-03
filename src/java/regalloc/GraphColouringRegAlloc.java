@@ -13,18 +13,18 @@ import java.util.stream.Stream;
 public class GraphColouringRegAlloc implements AssemblyPass {
 
     public static final GraphColouringRegAlloc INSTANCE = new GraphColouringRegAlloc();
-//
-//    public static final List<Register> AVAILABLE_REGISTERS = List.of(
-//            Register.Arch.t0, Register.Arch.t1, Register.Arch.t2, Register.Arch.t3, Register.Arch.t4,
-//            Register.Arch.t5, Register.Arch.t6, Register.Arch.t7, Register.Arch.t8, Register.Arch.t9,
-//            Register.Arch.s0, Register.Arch.s1, Register.Arch.s2, Register.Arch.s3, Register.Arch.s4,
-//            Register.Arch.s5, Register.Arch.s6, Register.Arch.s7
-//    );
-//
 
     public static final List<Register> AVAILABLE_REGISTERS = List.of(
-            Register.Arch.t0, Register.Arch.t1, Register.Arch.t2, Register.Arch.t3
+            Register.Arch.t0, Register.Arch.t1, Register.Arch.t2, Register.Arch.t3, Register.Arch.t4,
+            Register.Arch.t5, Register.Arch.t6, Register.Arch.t7, Register.Arch.t8, Register.Arch.t9,
+            Register.Arch.s0, Register.Arch.s1, Register.Arch.s2, Register.Arch.s3, Register.Arch.s4,
+            Register.Arch.s5, Register.Arch.s6, Register.Arch.s7
     );
+
+//
+//    public static final List<Register> AVAILABLE_REGISTERS = List.of(
+//            Register.Arch.t0, Register.Arch.t1, Register.Arch.t2, Register.Arch.t3
+//    );
 
 
     public static List<AssemblyItem> spillRegisterWithVirtual(Map<Register, Label> vrMap, List<AssemblyItem> items, Register regToSpill, Set<Register> registersUsedForSpilling) {
