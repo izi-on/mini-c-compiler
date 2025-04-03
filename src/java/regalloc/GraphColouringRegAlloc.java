@@ -1,5 +1,6 @@
 package regalloc;
 
+import ast.ASTNode;
 import gen.asm.*;
 import regalloc.control_flow.ControlFlowNode;
 import regalloc.control_flow.ControlFlowNodePrinter;
@@ -12,18 +13,18 @@ import java.util.stream.Stream;
 public class GraphColouringRegAlloc implements AssemblyPass {
 
     public static final GraphColouringRegAlloc INSTANCE = new GraphColouringRegAlloc();
+//
+//    public static final List<Register> AVAILABLE_REGISTERS = List.of(
+//            Register.Arch.t0, Register.Arch.t1, Register.Arch.t2, Register.Arch.t3, Register.Arch.t4,
+//            Register.Arch.t5, Register.Arch.t6, Register.Arch.t7, Register.Arch.t8, Register.Arch.t9,
+//            Register.Arch.s0, Register.Arch.s1, Register.Arch.s2, Register.Arch.s3, Register.Arch.s4,
+//            Register.Arch.s5, Register.Arch.s6, Register.Arch.s7
+//    );
+//
 
     public static final List<Register> AVAILABLE_REGISTERS = List.of(
-            Register.Arch.t0, Register.Arch.t1, Register.Arch.t2, Register.Arch.t3, Register.Arch.t4,
-            Register.Arch.t5, Register.Arch.t6, Register.Arch.t7, Register.Arch.t8, Register.Arch.t9,
-            Register.Arch.s0, Register.Arch.s1, Register.Arch.s2, Register.Arch.s3, Register.Arch.s4,
-            Register.Arch.s5, Register.Arch.s6, Register.Arch.s7
+            Register.Arch.t0, Register.Arch.t1, Register.Arch.t2, Register.Arch.t3
     );
-
-
-//    public static final List<Register> AVAILABLE_REGISTERS = List.of(
-//            Register.Arch.t0, Register.Arch.t1
-//    );
 
 
     public static List<AssemblyItem> spillRegisterWithVirtual(Map<Register, Label> vrMap, List<AssemblyItem> items, Register regToSpill, Set<Register> registersUsedForSpilling) {
@@ -73,10 +74,21 @@ public class GraphColouringRegAlloc implements AssemblyPass {
      * @param k
      * @return a map from register to int that represents a colour/label
      */
-    public static Map<Register, Integer> labelWithKColours(Map<Register, Set<Register>> interferenceGraph, Set<Register> regsUsedForSpilling, List<Register> spilled, int k) {
+    public static Map<Register, Integer> labelWithKColours(Map<Register, Set<Register>> interferenceGraph, Set<Register> regsUsedForSpilling, List<Register> spilled, List<AssemblyItem> items, int k) {
         Set<Register> unused = new HashSet<>(interferenceGraph.keySet());
         Stack<Register> stack = new Stack<>();
         Map<Register, Integer> labels = new HashMap<>();
+
+        // track the count of each var
+        Map<Register, Integer> freqTrack = new HashMap<>();
+        for (AssemblyItem assemblyItem : items) {
+            if (assemblyItem instanceof Instruction insn) {
+                for (Register r : insn.registers()) {
+                    freqTrack.put(r, freqTrack.getOrDefault(r, 0) + 1);
+                }
+            }
+        }
+
         while (unused.size() > 0) {
             // find a node with less than k neighbours
             Optional<Register> node = unused.stream().filter(r ->
@@ -90,11 +102,17 @@ public class GraphColouringRegAlloc implements AssemblyPass {
                 node = unused
                     .stream()
                     .sorted(
-                            Comparator.comparingInt(reg ->
-                                -(int)interferenceGraph.get(reg)
-                                .stream()
-                                .filter(regf -> unused.contains(regf))
-                                .count()
+                            Comparator.comparingDouble(reg ->
+                                    (
+                                        freqTrack.getOrDefault(reg, 0) * freqTrack.getOrDefault(reg, 0)
+                                    )
+                                    /
+                                    (
+                                            interferenceGraph.get(reg)
+                                                    .stream()
+                                                    .filter(regf -> unused.contains(regf))
+                                                    .count()
+                                    )
                             )
                     )
                     .filter(regf -> !regsUsedForSpilling.contains(regf))
@@ -521,7 +539,7 @@ public class GraphColouringRegAlloc implements AssemblyPass {
                 // step 4: colour the graph
                 labelledRegisters.clear();
                 List<Register> toBeSpilled = new ArrayList<>();
-                labelledRegisters.putAll(GraphColouringRegAlloc.labelWithKColours(interferenceGraph, registersUsedForSpilling, toBeSpilled, AVAILABLE_REGISTERS.size()));
+                labelledRegisters.putAll(GraphColouringRegAlloc.labelWithKColours(interferenceGraph, registersUsedForSpilling, toBeSpilled, filteredItems, AVAILABLE_REGISTERS.size()));
 
                 // check if there is a variable that needs to be spilled
                 if (!toBeSpilled.isEmpty()) {
@@ -566,12 +584,12 @@ public class GraphColouringRegAlloc implements AssemblyPass {
                     case Instruction insn -> {
                         if (insn == Instruction.Nullary.pushRegisters) {
                             newTextSection.emit("Original instruction: pushRegisters");
-                            Register tempRegister = Register.Arch.t0; // store t0 on stack and use it for pushing spilled regs
-
-                            int countOffset = 0;
-                            newTextSection.emit(OpCode.ADDIU, Register.Arch.sp, Register.Arch.sp, -4);
-                            newTextSection.emit(OpCode.SW, tempRegister, Register.Arch.sp, 0);
-
+                            newTextSection.emit("Registers:");
+                            for (Register r : registersToVisitInOrder) {
+                                newTextSection.emit(OpCode.ADDIU, Register.Arch.sp, Register.Arch.sp, -4);
+                                newTextSection.emit(OpCode.SW, r, Register.Arch.sp, 0);
+                            }
+                            Register tempRegister = Register.Arch.t0; // use it for pushing spilled regs
                             for (Label l : labelsToVisitInOrder) { // first, push the spilled registers
                                 // load content of memory at label into $t0
                                 newTextSection.emit(OpCode.LA, tempRegister, l);
@@ -580,47 +598,29 @@ public class GraphColouringRegAlloc implements AssemblyPass {
                                 // push $t0 onto stack
                                 newTextSection.emit(OpCode.ADDIU, Register.Arch.sp, Register.Arch.sp, -4);
                                 newTextSection.emit(OpCode.SW, tempRegister, Register.Arch.sp, 0);
-                                countOffset -= 4;
-                            }
-
-                            newTextSection.emit(OpCode.LW, tempRegister, Register.Arch.sp, -countOffset); // get back from stack
-
-                            newTextSection.emit("Registers:");
-                            for (Register r : registersToVisitInOrder) {
-                                newTextSection.emit(OpCode.ADDIU, Register.Arch.sp, Register.Arch.sp, -4);
-                                newTextSection.emit(OpCode.SW, r, Register.Arch.sp, 0);
                             }
                         } else if (insn == Instruction.Nullary.popRegisters) {
                             newTextSection.emit("Original instruction: popRegisters");
                             List<Label> labelReversed = vrMap.values().stream().collect(Collectors.toList());
                             Collections.reverse(labelReversed);
+                            Register tempRegister = Register.Arch.t0; // use for temporarily popping from stack
+                            Register tempRegister2 = Register.Arch.t1; // use for temporarily popping from stack
+                            newTextSection.emit("Labels:");
+                            for (Label l : labelToVisitInReverseOrder) {
+                                // pop from stack into $t0
+                                newTextSection.emit(OpCode.LW, tempRegister, Register.Arch.sp, 0);
+                                newTextSection.emit(OpCode.ADDIU, Register.Arch.sp, Register.Arch.sp, 4);
+
+                                // store content of $t0 in memory at label
+                                newTextSection.emit(OpCode.LA, tempRegister2, l);
+                                newTextSection.emit(OpCode.SW, tempRegister, tempRegister2, 0);
+                            }
                             newTextSection.emit("Registers:");
                             for (Register r : registersToVisitInReverseOrder) {
                                 newTextSection.emit(OpCode.LW, r, Register.Arch.sp, 0);
                                 newTextSection.emit(OpCode.ADDIU, Register.Arch.sp, Register.Arch.sp, 4);
                             }
 
-                            Register tempRegister = Register.Arch.t0; // use for temporarily popping from stack
-                            Register tempRegister2 = Register.Arch.t1; // use for temporarily popping from stack
-
-                            int countOffset = 0;
-                            newTextSection.emit(OpCode.SW, tempRegister, Register.Arch.sp, -4);
-                            newTextSection.emit(OpCode.SW, tempRegister2, Register.Arch.sp, -8);
-
-                            newTextSection.emit("Labels:");
-                            for (Label l : labelToVisitInReverseOrder) {
-                                // pop from stack into $t0
-                                newTextSection.emit(OpCode.LW, tempRegister, Register.Arch.sp, 0);
-                                newTextSection.emit(OpCode.ADDIU, Register.Arch.sp, Register.Arch.sp, 4);
-                                countOffset += 4;
-
-                                // store content of $t0 in memory at label
-                                newTextSection.emit(OpCode.LA, tempRegister2, l);
-                                newTextSection.emit(OpCode.SW, tempRegister, tempRegister2, 0);
-                            }
-
-                            newTextSection.emit(OpCode.LW, tempRegister, Register.Arch.sp, -countOffset - 4); // get back from stack
-                            newTextSection.emit(OpCode.LW, tempRegister2, Register.Arch.sp, -countOffset - 8); // get back from stack
                         } else {
                             List<Register> usedRegisters = insn.registers();
                             List<Register> newRegisters = usedRegisters.stream().map(r -> {
@@ -643,6 +643,20 @@ public class GraphColouringRegAlloc implements AssemblyPass {
                 }
             });
 
+            // count the amount of lw and sw instructions
+            int swCount = 0;
+            int lwCount = 0;
+            for (AssemblyItem item : newTextSection.items) {
+                if (item instanceof Instruction insn) {
+                    if (insn.opcode == OpCode.SW) {
+                        swCount++;
+                    } else if (insn.opcode == OpCode.LW) {
+                        lwCount++;
+                    }
+                }
+            }
+            System.out.println("SW count: " + swCount);
+            System.out.println("LW count: " + lwCount);
 
         });
         return newProg;
