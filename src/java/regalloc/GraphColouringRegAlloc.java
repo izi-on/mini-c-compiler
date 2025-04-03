@@ -13,18 +13,18 @@ import java.util.stream.Stream;
 public class GraphColouringRegAlloc implements AssemblyPass {
 
     public static final GraphColouringRegAlloc INSTANCE = new GraphColouringRegAlloc();
-
-    public static final List<Register> AVAILABLE_REGISTERS = List.of(
-            Register.Arch.t0, Register.Arch.t1, Register.Arch.t2, Register.Arch.t3, Register.Arch.t4,
-            Register.Arch.t5, Register.Arch.t6, Register.Arch.t7, Register.Arch.t8, Register.Arch.t9,
-            Register.Arch.s0, Register.Arch.s1, Register.Arch.s2, Register.Arch.s3, Register.Arch.s4,
-            Register.Arch.s5, Register.Arch.s6, Register.Arch.s7
-    );
-
 //
 //    public static final List<Register> AVAILABLE_REGISTERS = List.of(
-//            Register.Arch.t0, Register.Arch.t1, Register.Arch.t2, Register.Arch.t3
+//            Register.Arch.t0, Register.Arch.t1, Register.Arch.t2, Register.Arch.t3, Register.Arch.t4,
+//            Register.Arch.t5, Register.Arch.t6, Register.Arch.t7, Register.Arch.t8, Register.Arch.t9,
+//            Register.Arch.s0, Register.Arch.s1, Register.Arch.s2, Register.Arch.s3, Register.Arch.s4,
+//            Register.Arch.s5, Register.Arch.s6, Register.Arch.s7
 //    );
+//
+
+    public static final List<Register> AVAILABLE_REGISTERS = List.of(
+            Register.Arch.t0, Register.Arch.t1, Register.Arch.t2, Register.Arch.t3
+    );
 
 
     public static List<AssemblyItem> spillRegisterWithVirtual(Map<Register, Label> vrMap, List<AssemblyItem> items, Register regToSpill, Set<Register> registersUsedForSpilling) {
@@ -83,9 +83,12 @@ public class GraphColouringRegAlloc implements AssemblyPass {
         Map<Register, Integer> freqTrack = new HashMap<>();
         for (AssemblyItem assemblyItem : items) {
             if (assemblyItem instanceof Instruction insn) {
-                for (Register r : insn.registers()) {
-                    freqTrack.put(r, freqTrack.getOrDefault(r, 0) + 1);
-                }
+                new HashSet<Register>(((Instruction) assemblyItem).registers()).forEach(r -> {
+                    if (insn.uses().contains(r))
+                        freqTrack.put(r, freqTrack.getOrDefault(r, 0) + 1);
+                    if (insn.def() != null && insn.def().equals(r))
+                        freqTrack.put(r, freqTrack.getOrDefault(r, 0) + 1);
+                });
             }
         }
 
@@ -101,12 +104,13 @@ public class GraphColouringRegAlloc implements AssemblyPass {
             } else { // otherwise, find a node with highest connectivity to spill
                 node = unused
                     .stream()
+                    .filter(regf -> !regsUsedForSpilling.contains(regf))
                     .sorted(
                             Comparator.comparingDouble(reg ->
                                     (
-                                        freqTrack.getOrDefault(reg, 0) * freqTrack.getOrDefault(reg, 0)
+                                        freqTrack.getOrDefault(reg, 0) << 8
                                     )
-                                    /
+                                    +
                                     (
                                             interferenceGraph.get(reg)
                                                     .stream()
@@ -115,7 +119,6 @@ public class GraphColouringRegAlloc implements AssemblyPass {
                                     )
                             )
                     )
-                    .filter(regf -> !regsUsedForSpilling.contains(regf))
                     .findFirst();
                 spilled.add(node.get());
                 return Map.of();
@@ -642,7 +645,13 @@ public class GraphColouringRegAlloc implements AssemblyPass {
                     }
                 }
             });
+
+
+            // print num of mem instruction (load and store)
+            int numLoad = (int) filteredItems.stream().filter(item -> item instanceof Instruction insn && (insn.opcode == OpCode.LW || insn.opcode == OpCode.SW)).count();
+            System.out.println("Number of load/store instructions: " + numLoad);
         });
+
         return newProg;
 
     }
