@@ -107,15 +107,19 @@ public class GraphColouringRegAlloc implements AssemblyPass {
                     .filter(regf -> !regsUsedForSpilling.contains(regf))
                     .sorted(
                             Comparator.comparingDouble(reg ->
-                                    (
-                                        freqTrack.getOrDefault(reg, 0) << 8
+                                    Math.pow(
+                                            freqTrack.getOrDefault(reg, 0) * freqTrack.getOrDefault(reg, 0)
+                                            ,
+                                            2
                                     )
-                                    +
-                                    (
+                                    /
+                                    Math.pow(
                                             interferenceGraph.get(reg)
                                                     .stream()
                                                     .filter(regf -> unused.contains(regf))
                                                     .count()
+                                            ,
+                                            3
                                     )
                             )
                     )
