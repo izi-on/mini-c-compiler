@@ -642,22 +642,6 @@ public class GraphColouringRegAlloc implements AssemblyPass {
                     }
                 }
             });
-
-            // count the amount of lw and sw instructions
-            int swCount = 0;
-            int lwCount = 0;
-            for (AssemblyItem item : newTextSection.items) {
-                if (item instanceof Instruction insn) {
-                    if (insn.opcode == OpCode.SW) {
-                        swCount++;
-                    } else if (insn.opcode == OpCode.LW) {
-                        lwCount++;
-                    }
-                }
-            }
-            System.out.println("SW count: " + swCount);
-            System.out.println("LW count: " + lwCount);
-
         });
         return newProg;
 
