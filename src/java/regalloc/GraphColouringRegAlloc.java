@@ -21,7 +21,7 @@ public class GraphColouringRegAlloc implements AssemblyPass {
             Register.Arch.s5, Register.Arch.s6, Register.Arch.s7
     );
 
-//
+
 //    public static final List<Register> AVAILABLE_REGISTERS = List.of(
 //            Register.Arch.t0, Register.Arch.t1, Register.Arch.t2, Register.Arch.t3
 //    );
@@ -125,7 +125,7 @@ public class GraphColouringRegAlloc implements AssemblyPass {
                     )
                     .findFirst();
                 spilled.add(node.get());
-                return Map.of();
+                return Map.of(node.get(), -1);
             }
             unused.remove(node.get());
         }
@@ -148,11 +148,6 @@ public class GraphColouringRegAlloc implements AssemblyPass {
             int colour = colours.first();
             labels.put(node, colour);
             colours.addAll(usedColours);
-        }
-
-        // for spilled nodes, assign -1
-        for (Register node : spilled) {
-            labels.put(node, -1);
         }
 
         return labels;
@@ -629,6 +624,14 @@ public class GraphColouringRegAlloc implements AssemblyPass {
                             }
 
                         } else {
+                            // before we rebuild the instruction, it's possible that it contains a register
+                            // that is not labelled. This happens when a node is not reachable from the entry node
+                            // using the successors.
+                            if (insn.registers().stream().filter(r -> r.isVirtual()).anyMatch(vReg -> !labelledRegisters.containsKey(vReg))) {
+                                return;
+                            };
+
+                            // proceed
                             List<Register> usedRegisters = insn.registers();
                             List<Register> newRegisters = usedRegisters.stream().map(r -> {
                                 if (!r.isVirtual()) {

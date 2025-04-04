@@ -254,4 +254,5 @@ public class TestUselessItemsRemoval {
         assertTrue(filtered.contains(instr1), "instr1 should be present.");
         assertTrue(filtered.contains(instr2), "instr2 should be present.");
         assertTrue(filtered.contains(instr3), "instr3 should be present.");
-    }}
+    }
+}
