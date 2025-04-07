@@ -1,15 +1,13 @@
 package parser;
 
 import ast.*;
+import gen.util.mem.context.MemContext;
 import lexer.Token;
 import lexer.Token.Category;
 import lexer.Tokeniser;
 import util.CompilerPass;
 
-import java.util.ArrayList;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Queue;
+import java.util.*;
 
 /**
  * A recursive‐descent parser for mini‐C using the following unambiguous grammar:
@@ -151,12 +149,14 @@ public class Parser extends CompilerPass {
         while (accept(Category.INCLUDE)) {
             parseInclude();
         }
-        while (accept(Category.STRUCT, Category.INT, Category.CHAR, Category.VOID)) {
+        while (accept(Category.STRUCT, Category.INT, Category.CHAR, Category.VOID, Category.CLASS)) {
             // A struct declaration is recognized by: 'struct' IDENTIFIER '{'
             if (token.category == Category.STRUCT &&
                     lookAhead(1).category == Category.IDENTIFIER &&
                     lookAhead(2).category == Category.LBRA) {
                 decls.add(parseStructDecl());
+            } else if (token.category == Category.CLASS) {
+                decls.add(parseClassDecl());
             } else {
                 decls.add(parseDecl());
             }
@@ -164,6 +164,58 @@ public class Parser extends CompilerPass {
         expect(Category.EOF);
         return new Program(decls);
     }
+
+    // Class Declaration
+    // ClassDecl ::= (ClassType ClassType | ClassType) (VarDecl)* (FunDef)* // Part V - First ClassType is for newly-declared class and second one is dedicated to optional parent name
+    private ClassDecl parseClassDecl() {
+        expect(Category.CLASS);
+        String className = expect(Category.IDENTIFIER).data;
+        Optional<ClassType> superClassType = Optional.empty();
+        if (accept(Category.EXTENDS)) {
+            nextToken();
+            superClassType = Optional.of(new ClassType(expect(Category.IDENTIFIER).data));
+        }
+        expect(Category.LBRA);
+
+        if (!accept(Category.INT, Category.CHAR, Category.VOID, Category.STRUCT, Category.CLASS)) { // no decls
+            return new ClassDecl(new ClassType(className), superClassType, List.of(), List.of());
+        }
+
+        // parse var decls or fun defs
+        List<FunDef> funDefs = new ArrayList<>();
+        List<VarDecl> varDecls = new ArrayList<>();
+        // could be a var or a func
+        while (accept(Category.INT, Category.CHAR, Category.VOID, Category.STRUCT, Category.CLASS)) {
+            Type t = parseType();
+            String id = expect(Category.IDENTIFIER).data;
+            if (accept(Category.LPAR)) { // if a func, add func but break out of this loop since no more var decls accepted
+                nextToken();
+                List<VarDecl> params = parseParams();
+                expect(Category.RPAR);
+                Block block = parseBlock();
+                funDefs.add(new FunDef(t, id, params, block));
+                break;
+            }
+            VarDecl vd = parseVarDecl(t, id);
+            varDecls.add(vd);
+        }
+
+        // now it's only func
+        while (accept(Category.INT, Category.CHAR, Category.VOID, Category.STRUCT, Category.CLASS)) {
+            Type t = parseType();
+            String id = expect(Category.IDENTIFIER).data;
+            expect(Category.LPAR);
+            List<VarDecl> params = parseParams();
+            expect(Category.RPAR);
+            Block block = parseBlock();
+            funDefs.add(new FunDef(t, id, params, block));
+        }
+
+        expect(Category.RBRA);
+        ClassType curClassType = new ClassType(className);
+        return new ClassDecl(curClassType, superClassType, varDecls, funDefs);
+    }
+
 
     // include ::= "#include" STRING_LITERAL
     private void parseInclude() {
@@ -186,7 +238,7 @@ public class Parser extends CompilerPass {
             String fieldId = expect(Category.IDENTIFIER).data;
             VarDecl field = parseVarDecl(fieldType, fieldId);
             fields.add(field);
-        } while (accept(Category.INT, Category.CHAR, Category.VOID, Category.STRUCT));
+        } while (accept(Category.INT, Category.CHAR, Category.VOID, Category.STRUCT, Category.CLASS));
         expect(Category.RBRA);
         expect(Category.SC);
         return new StructTypeDecl(structName, fields);
@@ -287,7 +339,7 @@ public class Parser extends CompilerPass {
     private Block parseBlock() {
         expect(Category.LBRA);
         List<VarDecl> vardecls = new ArrayList<>();
-        while (accept(Category.INT, Category.CHAR, Category.VOID, Category.STRUCT)) {
+        while (accept(Category.INT, Category.CHAR, Category.VOID, Category.STRUCT, Category.CLASS)) {
             Type t = parseType();
             String id = expect(Category.IDENTIFIER).data;
             VarDecl vd = parseVarDecl(t, id);
@@ -460,7 +512,7 @@ public class Parser extends CompilerPass {
         return left;
     }
 
-    // exp7 ::= ("&" | "*" | typecast | "-" | "+") (exp7 | exp8)
+    // exp7 ::= ("&" | "*" | typecast | "-" | "+" | "new") (exp7 | exp8)
     private Expr parseExp7() {
         if (accept(Category.AND)) {
             nextToken();
@@ -475,8 +527,16 @@ public class Parser extends CompilerPass {
             nextToken();
             Expr operand = parseExp7();
             return new BinOp(new IntLiteral(0), (opToken.category == Category.MINUS) ? Op.SUB : Op.ADD, operand);
+        } else if (accept(Category.NEW)) {
+            nextToken();
+            expect(Category.CLASS);
+            String className = expect(Category.IDENTIFIER).data;
+            expect(Category.LPAR);
+            expect(Category.RPAR);
+            return new NewInstanceExpr(new ClassType(className));
+
         } else if (accept(Category.LPAR) && lookAhead(1).category == Category.INT || lookAhead(1).category == Category.CHAR ||
-                    lookAhead(1).category == Category.VOID || lookAhead(1).category == Category.STRUCT) {
+                    lookAhead(1).category == Category.VOID || lookAhead(1).category == Category.STRUCT || lookAhead(1).category == Category.CLASS) {
             // typecast production: ( type ) exp7
             expect(Category.LPAR);
             Type t = parseType();
@@ -488,8 +548,9 @@ public class Parser extends CompilerPass {
         }
     }
 
+
     // exp8 ::= ( IDENT ( (funccall_params | epsilon) (matrix_brqt | struct_field_access)* ) )
-    //        | ( exp9 ( matrix_brqt | struct_field_access )* )
+    //        | ( exp9 ( matrix_brqt | field_access | method_call )* )
     private Expr parseExp8() {
         Expr expr;
         if (accept(Category.IDENTIFIER)) {
@@ -508,7 +569,12 @@ public class Parser extends CompilerPass {
                 } else {
                     nextToken();
                     String field = expect(Category.IDENTIFIER).data;
-                    expr = new FieldAccessExpr(expr, field);
+                    if (accept(Category.LPAR)) {
+                        FunCallExpr funCall = parseFuncCall(field); // method call
+                        expr = new InstanceFunCallExpr(expr, funCall);
+                    } else {
+                        expr = new FieldAccessExpr(expr, field);
+                    }
                 }
             }
             return expr;
@@ -523,7 +589,12 @@ public class Parser extends CompilerPass {
                 } else {
                     nextToken();
                     String field = expect(Category.IDENTIFIER).data;
-                    expr = new FieldAccessExpr(expr, field);
+                    if (accept(Category.LPAR)) {
+                        FunCallExpr funCall = parseFuncCall(field); // method call
+                        expr = new InstanceFunCallExpr(expr, funCall);
+                    } else {
+                        expr = new FieldAccessExpr(expr, field);
+                    }
                 }
             }
             return expr;
@@ -565,7 +636,7 @@ public class Parser extends CompilerPass {
     }
 
     // Helper: function call parameters: funccall_params ::= "(" [ exp ("," exp)* ] ")"
-    private Expr parseFuncCall(String funcId) {
+    private FunCallExpr parseFuncCall(String funcId) {
         expect(Category.LPAR);
         List<Expr> args = new ArrayList<>();
         if (!accept(Category.RPAR)) {
@@ -598,8 +669,12 @@ public class Parser extends CompilerPass {
             nextToken();
             String structName = expect(Category.IDENTIFIER).data;
             base = new StructType(structName);
+        } else if (accept(Category.CLASS)){
+            nextToken();
+            String className = expect(Category.IDENTIFIER).data;
+            base = new ClassType(className);
         } else {
-            error(Category.INT, Category.CHAR, Category.VOID, Category.STRUCT);
+            error(Category.INT, Category.CHAR, Category.VOID, Category.STRUCT, Category.CLASS);
             base = BaseType.UNKNOWN;
         }
         while (accept(Category.ASTERISK)) {

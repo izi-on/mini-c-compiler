@@ -687,4 +687,179 @@ public class ParserTest {
         parser.parse();
         assertEquals("Struct declaration and struct type should parse without errors.", 0, parser.getNumErrors());
     }
+
+
+    @Test
+    public void testClassDeclarationAndOOPFeatures() throws IOException {
+        String input =
+                "class MyClass {\n" +
+                        "    int x;\n" +
+                        "    void setX(int val) {\n" +
+                        "        x = val;\n" +
+                        "    }\n" +
+                        "    int getX() {\n" +
+                        "        return x;\n" +
+                        "    }\n" +
+                        "}\n" +
+                        "int main() {\n" +
+                        "    class MyClass obj;\n" +
+                        "    int result;\n" +
+                        "    obj = new class MyClass();\n" +
+                        "    obj.setX(42);\n" +
+                        "    result = obj.getX();\n" +
+                        "    return result;\n" +
+                        "}\n";
+        Parser parser = createParserFromString(input);
+        parser.parse();
+        assertEquals("Class declaration and OOP features should parse without errors.", 0, parser.getNumErrors());
+    }
+
+    @Test
+    public void testClassInheritance() throws IOException {
+        String input =
+                "class BaseClass {\n" +
+                        "    int baseField;\n" +
+                        "    void baseMethod() {\n" +
+                        "        baseField = 10;\n" +
+                        "    }\n" +
+                        "}\n" +
+                        "class DerivedClass extends BaseClass {\n" +
+                        "    int derivedField;\n" +
+                        "    void derivedMethod() {\n" +
+                        "        derivedField = baseField + 5;\n" +
+                        "    }\n" +
+                        "}\n" +
+                        "int main() {\n" +
+                        "    class DerivedClass obj;\n" +
+                        "    obj = new class DerivedClass();\n" +
+                        "    obj.baseMethod();\n" +
+                        "    obj.derivedMethod();\n" +
+                        "    return obj.derivedField;\n" +
+                        "}\n";
+        Parser parser = createParserFromString(input);
+        parser.parse();
+        assertEquals("Class inheritance should parse without errors.", 0, parser.getNumErrors());
+    }
+
+    // Test structs containing instances of class types
+    @Test
+    public void testStructWithClassInstances() throws IOException {
+        String input =
+                "class MyClass { int a; }\n" +
+                        "struct Holder { class MyClass obj; };\n" +
+                        "int main() { struct Holder h; h.obj.a = 5; return h.obj.a; }\n";
+
+        Parser parser = createParserFromString(input);
+        parser.parse();
+
+        assertEquals("Struct with class instances must parse correctly.", 0, parser.getNumErrors());
+    }
+
+    // Test pointer to class inside a struct
+    @Test
+    public void testPointerToClassInsideStruct() throws IOException {
+        String input =
+                "class Node { int data; }\n" +
+                        "struct List { class Node* head; };\n" +
+                        "int main() { struct List list; list.head = new class Node(); (*list.head).data = 42; return (*list.head).data; }\n";
+
+        Parser parser = createParserFromString(input);
+        parser.parse();
+
+        assertEquals("Pointer to class inside struct must parse without errors.", 0, parser.getNumErrors());
+    }
+
+    // Test struct containing an array of class instances
+    @Test
+    public void testStructContainingClassArray() throws IOException {
+        String input =
+                "class Item { int value; }\n" +
+                        "struct Collection { class Item items[10]; };\n" +
+                        "int main() { struct Collection col; col.items[0].value = 20; return col.items[0].value; }\n";
+
+        Parser parser = createParserFromString(input);
+        parser.parse();
+
+        assertEquals("Struct containing an array of class instances must parse correctly.", 0, parser.getNumErrors());
+    }
+
+    @Test
+    public void testClassTypecasting() throws IOException {
+
+        String input =
+            """
+                int main() {
+                vcourse = (class Course) new class VirtualCourse();
+                }
+                
+            """;
+
+        Parser parser = createParserFromString(input);
+        parser.parse();
+
+        assertEquals("Struct containing an array of class instances must parse correctly.", 0, parser.getNumErrors());
+    }
+
+    @Test
+    public void testClassExamples() throws IOException {
+        String input =
+                """
+                                class Course {
+                                    char name[20];
+                                    int credit;
+                                    int courseWorkScore;
+                                               
+                                    void whereToAttend(){
+                                        print_s((char*)"Not determined! The course will be held virtually or in person!\\n");
+                                    }
+                                    int hasExam(){
+                                        if(courseWorkScore == 100)
+                                            return 0;
+                                        else
+                                            return 1;
+                                    }
+                                }
+                                
+                                class VirtualCourse extends Course {
+                                    char zoomLink[200];
+                                     void whereToAttend(){
+                                            print_s((char*)"The course is going to be held on Zoom!\\n");
+                                        }
+                                    
+                                }
+                                
+                                 
+                                 void main(){
+                                     class Course comp520;
+                                     int credit;
+                                     class Course course;
+                                     class Course vcourse;
+                                     course = new class Course();
+                                     vcourse = (class Course) new class VirtualCourse();
+                                 
+                                     course.whereToAttend();
+                                     vcourse.whereToAttend();
+                                     
+                                     
+                                     comp520 = new class Course();
+                                     credit = comp520.credit; // field access
+                                     comp520.credit = 4;      // field assignment
+                                     
+                                     course = (class Course) vcourse;
+                                     
+                                     
+                                    if(comp520.hasExam())
+                                        print_s((char*)"Be ready for the exam!\\n");
+                                    else
+                                        print_s((char*)"Be ready for the project implementation!:)\\n");
+                                     
+                                 }
+                                 
+                        """;
+
+        Parser parser = createParserFromString(input);
+        parser.parse();
+
+        assertEquals("Struct containing an array of class instances must parse correctly.", 0, parser.getNumErrors());
+    }
 }

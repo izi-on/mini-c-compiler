@@ -1158,4 +1158,14 @@ class TokeniserTest {
         assertTrue(errors > 0, "Expected lexer errors for a malformed integer literal");
     }
 
+    // write a test for object oritented features
+    @Test
+    void testObjectOrientedFeatures(@TempDir Path tempDir) throws IOException {
+        // Test object-oriented features like classes, inheritance, etc.
+        String code = "class MyClass extends SomeClass { int x; void method() {} }; new MyClass();";
+        File tempFile = tempDir.resolve("objectOriented.txt").toFile();
+        int errors = tokenizeStringAndGetErrorCount(code, tempFile);
+        assertEquals(0, errors, "objectOriented: expected 0 lexer errors");
+    }
+
 }

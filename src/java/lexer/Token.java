@@ -100,6 +100,9 @@ public class Token {
         SIZEOF, // 'sizeof'
         CONTINUE, // 'continue'
         BREAK, // 'break'
+        NEW, // 'new'
+        CLASS, // 'class'
+        EXTENDS,
 
         // include
         INCLUDE, // '#include'
@@ -185,6 +188,9 @@ public class Token {
         root.addPath("int", Token.Category.INT);
         root.addPath("void", Token.Category.VOID);
         root.addPath("char", Token.Category.CHAR);
+        root.addPath("new", Token.Category.NEW);
+        root.addPath("class", Token.Category.CLASS);
+        root.addPath("extends", Token.Category.EXTENDS); // Added for class extension
 
         return root;
     }
