@@ -1373,4 +1373,85 @@ public class SemanticAnalysisEndToEndTest {
         int errors = runSemanticAnalysis(input);
         assertTrue(errors > 0, "Extending an undeclared class should produce semantic errors");
     }
+
+    /**
+     * Test 14: Subclass method overrides ancestor method correctly (same signature).
+     */
+    @Test
+    public void testValidMethodOverride() throws IOException {
+        String input = """
+        class Animal {
+            void speak() {
+                print_s((char*)"Animal sound\\n");
+            }
+        }
+        class Dog extends Animal {
+            void speak() {
+                print_s((char*)"Woof\\n");
+            }
+        }
+        int main() {
+            class Dog d;
+            d = new class Dog();
+            d.speak();
+            return 0;
+        }
+        """;
+        int errors = runSemanticAnalysis(input);
+        assertEquals(0, errors, "Valid method override with matching signature should be semantically correct");
+    }
+
+    /**
+     * Test 15: Subclass method override with different return type (error).
+     */
+    @Test
+    public void testInvalidMethodOverrideReturnType() throws IOException {
+        String input = """
+        class Animal {
+            void speak() {
+                print_s((char*)"Animal sound\\n");
+            }
+        }
+        class Cat extends Animal {
+            int speak() {
+                return 1;
+            }
+        }
+        int main() {
+            class Cat c;
+            c = new class Cat();
+            c.speak();
+            return 0;
+        }
+        """;
+        int errors = runSemanticAnalysis(input);
+        assertTrue(errors > 0, "Overriding a method with a different return type should produce semantic errors");
+    }
+
+    /**
+     * Test 16: Subclass method override with different number of parameters (error).
+     */
+    @Test
+    public void testInvalidMethodOverrideParameterCount() throws IOException {
+        String input = """
+        class Vehicle {
+            void drive() {
+                print_s((char*)"Driving\\n");
+            }
+        }
+        class Car extends Vehicle {
+            void drive(int speed) {
+                print_i(speed);
+            }
+        }
+        int main() {
+            class Car c;
+            c = new class Car();
+            c.drive();
+            return 0;
+        }
+        """;
+        int errors = runSemanticAnalysis(input);
+        assertTrue(errors > 0, "Overriding a method with different parameter count should produce semantic errors");
+    }
 }

@@ -186,7 +186,11 @@ public class TypeAnalyzer extends BaseSemanticAnalyzer {
 					);
 				});
 
-				// go to var decls and methods
+				withScope(classScope, () -> {
+					Stream.concat(cd.varDecls.stream(), cd.funDefs.stream()).forEach(this::visit);
+				});
+
+				// go to var decls
 				// check if not double decl for class
 				cd.superClassType.ifPresent(superClassType -> {
 					getClass(superClassType.name).ifPresentOrElse(
@@ -203,17 +207,50 @@ public class TypeAnalyzer extends BaseSemanticAnalyzer {
 										error("Field " + vd.name + " already declared in super class " + superClassType.name);
 								});
 
+							},
+							() -> error("Expected super class " + superClassType.name + ", but not found in symbol table")
+					);
+				});
+
+
+				// check if type is well overwritten
+				cd.superClassType.ifPresent(superClassType -> {
+					getClass(superClassType.name).ifPresentOrElse(
+							superClassSymbol -> {
+								cd.funDefs.forEach(fd -> {
+									Scope curClassScope = superClassSymbol.classScope;
+									while (curClassScope.lookupCurrent(fd.name) == null) {
+										curClassScope = curClassScope.getOuter();
+										if (curClassScope == null) {
+											break;
+										}
+									}
+									if (curClassScope != null && curClassScope.getOuter() != null) { // found in super class AND isn't global
+
+										// get type from super class
+										Symbol symb = curClassScope.lookupCurrent(fd.name);
+										if (!(symb instanceof TypeSymbol))
+											error("Found a symbol, but it's not a type symbol: " + fd.name);
+										TypeSymbol funcSymb = (TypeSymbol) symb;
+
+										// get type from current class
+										Symbol symbCur = classScope.lookupCurrent(fd.name);
+										if (!(symbCur instanceof TypeSymbol))
+											error("Found a symbol, but it's not a type symbol: " + fd.name);
+										TypeSymbol funcSymbCur = (TypeSymbol) symbCur;
+
+										if (!funcSymb.type.equals(funcSymbCur.type)) {
+											error("Function " + fd.name + " is not well overwritten in class " + classType.name + ": signatures don't match");
+										}
+									}
+								});
+
 							}, // has access to globals because eventually on the parent scopes has global
 							() -> error("Expected super class " + superClassType.name + ", but not found in symbol table")
 					);
 				});
 
-				withScope(classScope, () -> {
-					Stream.concat(cd.varDecls.stream(), cd.funDefs.stream()).forEach(this::visit);
-				});
-
 				// set the class symbol in the symbol table
-				cd.type = classType;
 				classType.classDecl = Optional.of(cd);
 				yield classType;
 			}
@@ -240,7 +277,6 @@ public class TypeAnalyzer extends BaseSemanticAnalyzer {
 				});
 				StructType structType = new StructType(std.name);
 				structType.structTypeDecl = std;
-				std.type = structType;
 				setStruct(new StructTypeSymbol(std, structType, structScope.get()));
 				yield structType;
 			}

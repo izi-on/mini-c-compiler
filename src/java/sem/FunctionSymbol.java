@@ -1,5 +1,6 @@
 package sem;
 
+import ast.AggregateType;
 import ast.FunDecl;
 import ast.FunDef;
 import ast.Type;
@@ -16,6 +17,15 @@ public class FunctionSymbol extends Symbol {
     public FunctionSymbol(String name, FunDef funDef) {
         super(name);
         this.funDef = funDef;
+    }
+
+    public Type getType() {
+        if (funDef == null) {
+            return funDef.type;
+        } else if (funDecl != null) {
+            return funDecl.type;
+        }
+        return null;
     }
 
 }
