@@ -1,7 +1,9 @@
 package ast;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 public final class ClassDecl extends Decl {
     public ClassType curClassType;
@@ -11,6 +13,7 @@ public final class ClassDecl extends Decl {
 
     public ClassDecl(ClassType curClassType, Optional<ClassType> superClassType,
                     List<VarDecl> varDecls, List<FunDef> funDefs) {
+        this.name = curClassType.name;
         this.curClassType = curClassType;
         this.superClassType = superClassType;
         this.varDecls = varDecls;
@@ -28,6 +31,11 @@ public final class ClassDecl extends Decl {
 
     @Override
     public List<ASTNode> children() {
-        return List.of();
+        List<ASTNode> children = new ArrayList<>();
+        children.add(curClassType);
+        superClassType.ifPresent(children::add);
+        children.addAll(varDecls);
+        children.addAll(funDefs);
+        return children;
     }
 }

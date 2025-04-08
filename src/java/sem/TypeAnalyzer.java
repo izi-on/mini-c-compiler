@@ -8,8 +8,10 @@ import sem.error.UnexpectedTypeErr;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Stream;
 
 public class TypeAnalyzer extends BaseSemanticAnalyzer {
+	Map<ClassType, Optional<ClassType>> classToSuperClass = new HashMap<>();
 
 	private Type getCurrentFunctionType() {
 		Symbol s = scope.lookup(CurrentFunctionTypeSymbol.prefix());
@@ -24,7 +26,7 @@ public class TypeAnalyzer extends BaseSemanticAnalyzer {
 		if (expr instanceof ArrayAccessExpr)
 			checkValidLValue(((ArrayAccessExpr) expr).array);
 		else if (expr instanceof FieldAccessExpr)
-			checkValidLValue(((FieldAccessExpr) expr).struct);
+			checkValidLValue(((FieldAccessExpr) expr).structOrClass);
 		else if (expr instanceof ValueAtExpr)
 			checkValidLValue(((ValueAtExpr) expr).expr);
 		else if (expr instanceof VarExpr)
@@ -40,6 +42,22 @@ public class TypeAnalyzer extends BaseSemanticAnalyzer {
 		scope.put(funcType);
 		r.run();
 		scope = scope.getOuter();
+	}
+
+	private void withScope(Scope scope, Runnable r) {
+		Scope oldScope = this.scope;
+		this.scope = scope;
+		r.run();
+		this.scope = oldScope;
+	}
+
+	public Optional<ClassTypeSymbol> getClass(String className) {
+		Symbol s = scope.lookup(ClassTypeSymbol.prefix() + className);
+		return Optional.ofNullable((ClassTypeSymbol) s);
+	}
+
+	private void setClass(ClassTypeSymbol classSymbol) {
+		scope.put(classSymbol);
 	}
 
 	// have a separate get method for structs because they have their own namespace for lookups and other identifiers should not intersect with them
@@ -145,6 +163,60 @@ public class TypeAnalyzer extends BaseSemanticAnalyzer {
 			case IntLiteral i -> {i.type = BaseType.INT ;yield BaseType.INT;}
 			case StrLiteral s -> {Type type = new ArrayType(BaseType.CHAR, s.value.length() + 1); s.type = type ; yield type;}
 			case ChrLiteral c -> {c.type = BaseType.CHAR; yield BaseType.CHAR;}
+
+			// --- Class declaration ---
+			case ClassDecl cd -> {
+				// check if not double decl for class
+				if (!getClass(cd.name).isEmpty()) {
+					error(new DoubleDeclErr(cd));
+					yield BaseType.UNKNOWN;
+				}
+				ClassType classType = cd.curClassType;
+				classToSuperClass.put(classType, cd.superClassType);
+
+
+				// if super class, then get its scope
+				Scope classScope = new Scope(scope);
+				ClassTypeSymbol classTypeSymbol = new ClassTypeSymbol(classType.name, classType, classScope);
+				setClass(classTypeSymbol);
+				cd.superClassType.ifPresent(superClassType -> {
+					getClass(superClassType.name).ifPresentOrElse(
+							superClassSymbol -> classScope.setOuter(superClassSymbol.classScope), // has access to globals because eventually on the parent scopes has global
+							() -> error("Expected super class " + superClassType.name + ", but not found in symbol table")
+					);
+				});
+
+				// go to var decls and methods
+				// check if not double decl for class
+				cd.superClassType.ifPresent(superClassType -> {
+					getClass(superClassType.name).ifPresentOrElse(
+							superClassSymbol -> {
+								cd.varDecls.forEach(vd -> {
+									Scope curClassScope = superClassSymbol.classScope;
+									while (curClassScope.lookupCurrent(vd.name) == null) {
+										curClassScope = curClassScope.getOuter();
+										if (curClassScope == null) {
+											break;
+										}
+									}
+									if (curClassScope != null && curClassScope.getOuter() != null) // found in super class AND isn't global
+										error("Field " + vd.name + " already declared in super class " + superClassType.name);
+								});
+
+							}, // has access to globals because eventually on the parent scopes has global
+							() -> error("Expected super class " + superClassType.name + ", but not found in symbol table")
+					);
+				});
+
+				withScope(classScope, () -> {
+					Stream.concat(cd.varDecls.stream(), cd.funDefs.stream()).forEach(this::visit);
+				});
+
+				// set the class symbol in the symbol table
+				cd.type = classType;
+				classType.classDecl = Optional.of(cd);
+				yield classType;
+			}
 
 			// --- Struct declaration ---
 			case StructTypeDecl std -> {
@@ -268,6 +340,15 @@ public class TypeAnalyzer extends BaseSemanticAnalyzer {
 					finalType = castType;
 				} else if (castType instanceof PointerType && exprType instanceof PointerType) {
 					finalType = castType;
+				} else if (exprType instanceof ClassType && castType instanceof ClassType) {
+					Optional<ClassType> cur = Optional.ofNullable((ClassType)exprType);
+					while (cur.isPresent() && !cur.get().equals(castType)) {
+						cur = classToSuperClass.getOrDefault(cur.get(), Optional.empty());
+					}
+					if (cur.isEmpty()) {
+						error("Cannot cast class type: " + exprType + " to " + castType);
+					}
+					finalType = castType;
 				} else if (finalType == null) {
 					error(new UnexpectedTypeErr(castType));
 					finalType = castType;
@@ -325,27 +406,84 @@ public class TypeAnalyzer extends BaseSemanticAnalyzer {
 
 			// --- Field access (e.g. e.field) ---
 			case FieldAccessExpr fa -> {
-				Type exprType = visit(fa.struct);
-				if (!(exprType instanceof StructType)) {
+				Type exprType = visit(fa.structOrClass);
+				if (!(exprType instanceof StructType || exprType instanceof ClassType)) {
 					error(new UnexpectedTypeErr(exprType));
 					yield BaseType.UNKNOWN;
 				}
-				StructType structType = (StructType) exprType;
-				StructTypeSymbol structSymbol = (StructTypeSymbol) getStruct(structType.typeName);
-				if (structSymbol == null) {
-					error(new SymbolMismatchErr(structSymbol, new NullSymbol()));
+
+				if (exprType instanceof StructType) {
+					StructType structType = (StructType) exprType;
+					StructTypeSymbol structSymbol = (StructTypeSymbol) getStruct(structType.typeName);
+					if (structSymbol == null) {
+						error(new SymbolMismatchErr(structSymbol, new NullSymbol()));
+						yield BaseType.UNKNOWN;
+					}
+
+					// check if field is present in the struct scope and get its type
+					Scope structScope = structSymbol.declScope;
+					TypeSymbol fieldSymbol = (TypeSymbol) structScope.lookupCurrent(fa.field);
+					if (fieldSymbol == null) {
+						error(new SymbolMismatchErr(new TypeSymbol(fa.field, BaseType.UNKNOWN), new NullSymbol()));
+						yield BaseType.UNKNOWN;
+					}
+					fa.type = fieldSymbol.type;
+					yield fieldSymbol.type;
+				} else if (exprType instanceof ClassType) {
+					ClassType classType = (ClassType) exprType;
+					ClassTypeSymbol classSymbol = getClass(classType.name).orElse(null);
+					if (classSymbol == null) {
+						error("Expected class " + classType.name + ", but not found in symbol table");
+						yield BaseType.UNKNOWN;
+					}
+
+					// check if field is present in the class scope and get its type
+					Scope classScope = classSymbol.classScope;
+					TypeSymbol fieldSymbol = (TypeSymbol) classScope.lookup(fa.field);
+					if (fieldSymbol == null) {
+						error("Could not find field " + fa.field + " in class " + classType.name + ", please check the field name and its visibility");
+						yield BaseType.UNKNOWN;
+					}
+					fa.type = fieldSymbol.type;
+					yield fieldSymbol.type;
+				} else {
+					error(new UnexpectedTypeErr(exprType));
+					yield BaseType.UNKNOWN;
+				}
+			}
+
+			case InstanceFunCallExpr methodCallExpr -> {
+				Type instanceExprType = visit(methodCallExpr.instanceExpr);
+
+				// ensure we are calling on a class instance
+				if (!(instanceExprType instanceof ClassType)) {
+					error(new UnexpectedTypeErr(instanceExprType));
+					yield BaseType.UNKNOWN;
+				}
+				ClassTypeSymbol classSymbol = getClass(((ClassType) instanceExprType).name).orElse(null);
+				if (classSymbol == null) {
+					error("Expected class " + ((ClassType) instanceExprType).name + ", but not found in symbol table");
 					yield BaseType.UNKNOWN;
 				}
 
-				// check if field is present in the struct scope and get its type
-				Scope structScope = structSymbol.declScope;
-				TypeSymbol fieldSymbol = (TypeSymbol) structScope.lookupCurrent(fa.field);
-				if (fieldSymbol == null) {
-					error(new SymbolMismatchErr(new TypeSymbol(fa.field, BaseType.UNKNOWN), new NullSymbol()));
+				AtomicReference<Type> methodCallType = new AtomicReference<>();
+				withScope(classSymbol.classScope, () -> {
+					methodCallType.set(visit(methodCallExpr.funCallExpr));
+				});
+
+				methodCallExpr.type = methodCallType.get();
+				yield methodCallType.get();
+			}
+
+			case NewInstanceExpr newInstanceExpr -> {
+				Optional<ClassTypeSymbol> type = getClass(newInstanceExpr.classType.name);
+				if (type.isEmpty()) {
+					error(new SymbolMismatchErr(new TypeSymbol("unknown", BaseType.UNKNOWN), new NullSymbol()));
 					yield BaseType.UNKNOWN;
 				}
-				fa.type = fieldSymbol.type;
-				yield fieldSymbol.type;
+				ClassTypeSymbol classTypeSymbol = (ClassTypeSymbol) type.get();
+				newInstanceExpr.type = classTypeSymbol.classType;
+				yield classTypeSymbol.classType;
 			}
 
 			case While w -> {
@@ -406,6 +544,17 @@ public class TypeAnalyzer extends BaseSemanticAnalyzer {
 					yield BaseType.UNKNOWN;
 				}
 				yield st;
+			}
+
+			// for class types, ensure that the class is declared previously
+			case ClassType ct -> {
+				ClassTypeSymbol s = getClass(ct.name).orElse(null);
+				if (s == null) {
+					error("Expected class " + ct.name + ", but not found in symbol table");
+					yield BaseType.UNKNOWN;
+				}
+				ct.classDecl = Optional.ofNullable(s.classType.classDecl.orElse(null));
+				yield ct;
 			}
 
 			case Type t -> {yield t;}

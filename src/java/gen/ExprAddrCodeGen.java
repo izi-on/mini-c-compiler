@@ -88,7 +88,7 @@ public class ExprAddrCodeGen extends CodeGen {
 
             case FieldAccessExpr fa -> {
                 // get the offset of the field
-                StructType strctType = (StructType) fa.struct.type;
+                StructType strctType = (StructType) fa.structOrClass.type;
                 Decl fieldDecl = StructUtils.getDeclOfField(strctType, fa.field).orElseThrow(() -> new IllegalStateException("field decl access not associated with decl in struct decl"));
                 int fieldOffset = MemContext
                         .getAllocator()
@@ -98,7 +98,7 @@ public class ExprAddrCodeGen extends CodeGen {
                         .orElseThrow();
 
                 // get the address of the struct
-                Register addr = visit(fa.struct);
+                Register addr = visit(fa.structOrClass);
 
                 // calculate address
                 Register r = Register.Virtual.create();

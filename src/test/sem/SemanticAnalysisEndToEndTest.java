@@ -1058,4 +1058,319 @@ public class SemanticAnalysisEndToEndTest {
         int errors = runSemanticAnalysis(input);
         assertTrue(errors > 0, "cant break when no loop");
     }
+
+    @Test
+    public void testValidClassDeclarationAndInstantiation() throws IOException {
+        String input = """
+            class Course {
+                char name[20];
+                int credit;
+                void whereToAttend(){
+                    print_s((char*)"Course location unknown\\n");
+                }
+                int hasExam(){
+                    if(credit > 3)
+                        return 1;
+                    else
+                        return 0;
+                }
+            }
+            int main(){
+                class Course comp520;
+                comp520 = new class Course();
+                comp520.credit = 4;
+                if(comp520.hasExam())
+                    print_s((char*)"Exam\\n");
+                else
+                    print_s((char*)"No exam\\n");
+                return 0;
+            }
+            """;
+        int errors = runSemanticAnalysis(input);
+        assertEquals(0, errors, "Valid class declaration and instantiation should be semantically correct");
+    }
+
+    /**
+     * Test 2: Valid class inheritance with method overriding.
+     */
+    @Test
+    public void testValidClassInheritanceAndOverriding() throws IOException {
+        String input = """
+            class Course {
+                int credit;
+                void whereToAttend(){
+                    print_s((char*)"Virtual or in-person\\n");
+                }
+            }
+            class VirtualCourse extends Course {
+                char zoomLink[200];
+                void whereToAttend(){
+                    print_s((char*)"Zoom meeting\\n");
+                }
+            }
+            int main(){
+                class Course course;
+                class Course vcourse;
+                course = new class Course();
+                vcourse = (class Course) new class VirtualCourse();
+                course.whereToAttend();
+                vcourse.whereToAttend();
+                return 0;
+            }
+            """;
+        int errors = runSemanticAnalysis(input);
+        assertEquals(0, errors, "Valid inheritance with overriding should be semantically correct");
+    }
+
+    /**
+     * Test 3: Invalid recursive inheritance (a class extending itself).
+     */
+    @Test
+    public void testInvalidRecursiveInheritance() throws IOException {
+        String input = """
+            class A extends A {
+                int x;
+            }
+            int main(){
+                return 0;
+            }
+            """;
+        int errors = runSemanticAnalysis(input);
+        assertTrue(errors > 0, "A class extending itself should produce semantic errors");
+    }
+
+    /**
+     * Test 4: Illegal field override in subclass (redeclaring a field from an ancestor).
+     */
+    @Test
+    public void testIllegalFieldOverride() throws IOException {
+        String input = """
+            class Base {
+                int x;
+            }
+            class Derived extends Base {
+                int x;
+            }
+            int main(){
+                return 0;
+            }
+            """;
+        int errors = runSemanticAnalysis(input);
+        assertTrue(errors > 0, "Overriding a field in a subclass should produce semantic errors");
+    }
+
+    /**
+     * Test 5: Overriding a method with a mismatching signature.
+     */
+    @Test
+    public void testMethodOverridingWrongSignature() throws IOException {
+        String input = """
+            class Base {
+                int foo(){
+                    return 1;
+                }
+            }
+            class Derived extends Base {
+                // Wrong return type for overriding foo
+                char foo(){
+                    return 'a';
+                }
+            }
+            int main(){
+                class Base b;
+                b = new class Derived();
+                return b.foo();
+            }
+            """;
+        int errors = runSemanticAnalysis(input);
+        assertTrue(errors > 0, "Overriding a method with a different signature should produce semantic errors");
+    }
+
+    /**
+     * Test 6: Valid upcasting (assigning a subclass instance to a variable of an ancestor type using explicit cast).
+     */
+    @Test
+    public void testValidUpcasting() throws IOException {
+        String input = """
+            class A {
+                int x;
+                int getX(){
+                    return x;
+                }
+            }
+            class B extends A {
+                int y;
+                int getY(){
+                    return y;
+                }
+            }
+            int main(){
+                class A a;
+                class B b;
+                b = new class B();
+                a = (class A) b;
+                return a.getX();
+            }
+            """;
+        int errors = runSemanticAnalysis(input);
+        assertEquals(0, errors, "Valid upcasting should be semantically correct");
+    }
+
+    /**
+     * Test 7: Invalid downcasting assignment (assigning a parent object to a subclass variable without proper cast).
+     */
+    @Test
+    public void testInvalidDowncastingAssignment() throws IOException {
+        String input = """
+            class A {
+                int x;
+            }
+            class B extends A {
+                int y;
+            }
+            int main(){
+                class B b;
+                class A a;
+                a = new class A();
+                // Invalid: assigning an A to a B variable without a proper cast
+                b = a;
+                return 0;
+            }
+            """;
+        int errors = runSemanticAnalysis(input);
+        assertTrue(errors > 0, "Invalid downcasting assignment should produce semantic errors");
+    }
+
+    /**
+     * Test 8: Virtual dispatch – method call should resolve to the runtime (overridden) method.
+     */
+    @Test
+    public void testVirtualDispatch() throws IOException {
+        String input = """
+            class Base {
+                void greet(){
+                    print_s((char*)"Hello from Base\\n");
+                }
+            }
+            class Derived extends Base {
+                void greet(){
+                    print_s((char*)"Hello from Derived\\n");
+                }
+            }
+            int main(){
+                class Derived b;
+                b = new class Derived();
+                b.greet();
+                return 0;
+            }
+            """;
+        int errors = runSemanticAnalysis(input);
+        assertEquals(0, errors, "Virtual dispatch should be semantically correct");
+    }
+
+    /**
+     * Test 9: Valid field access on a class object.
+     */
+    @Test
+    public void testClassFieldAccess() throws IOException {
+        String input = """
+            class Point {
+                int x;
+                int y;
+            }
+            int main(){
+                class Point p;
+                p = new class Point();
+                p.x = 10;
+                return p.x;
+            }
+            """;
+        int errors = runSemanticAnalysis(input);
+        assertEquals(0, errors, "Valid class field access should be semantically correct");
+    }
+
+    /**
+     * Test 10: Valid assignment between class objects and use of EQ operator.
+     */
+    @Test
+    public void testClassAssignmentAndEqualityComparison() throws IOException {
+        String input = """
+            class A {
+                int x;
+            }
+            int main(){
+                class A a;
+                class A b;
+                a = new class A();
+                b = a;
+                if(a == b)
+                    return 1;
+                else
+                    return 0;
+            }
+            """;
+        int errors = runSemanticAnalysis(input);
+        assertEquals(0, errors, "Class assignment and equality comparison should be semantically correct");
+    }
+
+    /**
+     * Test 11: Using sizeof on a class object should yield pointer size.
+     */
+    @Test
+    public void testSizeOfClassObject() throws IOException {
+        String input = """
+            class A {
+                int x;
+            }
+            int main(){
+                class A a;
+                int size;
+                a = new class A();
+                size = sizeof(class A);
+                return size;
+            }
+            """;
+        int errors = runSemanticAnalysis(input);
+        assertEquals(0, errors, "Using sizeof on a class object should be semantically correct");
+    }
+
+    /**
+     * Test 12: Passing class objects as function parameters.
+     */
+    @Test
+    public void testFunctionParameterPassingClassObject() throws IOException {
+        String input = """
+            class A {
+                int x;
+            }
+            int foo(class A a){
+                return a.x;
+            }
+            int main(){
+                class A a;
+                a = new class A();
+                a.x = 5;
+                return foo(a);
+            }
+            """;
+        int errors = runSemanticAnalysis(input);
+        assertEquals(0, errors, "Passing class objects as parameters should be semantically correct");
+    }
+
+    /**
+     * Test 13: Extending an undeclared class should produce an error.
+     */
+    @Test
+    public void testExtendingUndeclaredClass() throws IOException {
+        String input = """
+            class Derived extends NonExistent {
+                int x;
+            }
+            int main(){
+                return 0;
+            }
+            """;
+        int errors = runSemanticAnalysis(input);
+        assertTrue(errors > 0, "Extending an undeclared class should produce semantic errors");
+    }
 }

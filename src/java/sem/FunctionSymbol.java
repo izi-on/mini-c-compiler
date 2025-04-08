@@ -2,6 +2,7 @@ package sem;
 
 import ast.FunDecl;
 import ast.FunDef;
+import ast.Type;
 
 public class FunctionSymbol extends Symbol {
     FunDecl funDecl;
@@ -16,4 +17,5 @@ public class FunctionSymbol extends Symbol {
         super(name);
         this.funDef = funDef;
     }
+
 }

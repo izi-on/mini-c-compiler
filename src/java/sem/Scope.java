@@ -37,4 +37,8 @@ public class Scope {
 	public Scope getOuter() {
 		return outer;
 	}
+
+	public void setOuter(Scope outer) {
+		this.outer = outer;
+	}
 }

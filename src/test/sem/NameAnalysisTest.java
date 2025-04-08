@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Test cases for the NameAnalyzer pass.
@@ -369,5 +370,110 @@ public class NameAnalysisTest {
         // The function call inside the inner block is an error because lookup returns a variable.
         // We expect that the NameAnalyzer has recorded at least one error.
         assertTrue(na.getNumErrors() > 0, "A function call to a shadowed identifier should produce a name error");
+    }
+
+
+    /**
+     * Test that duplicate field declarations in a class are flagged.
+     */
+    @Test
+    void testDuplicateClassFields() {
+        // Create two field declarations with the same name.
+        VarDecl field1 = new VarDecl(BaseType.INT, "field");
+        VarDecl field2 = new VarDecl(BaseType.INT, "field");
+        List<VarDecl> fields = new ArrayList<>();
+        fields.add(field1);
+        fields.add(field2);
+
+        // No methods declared.
+        List<FunDef> methods = new ArrayList<>();
+
+        // Declare the class in the global scope.
+        ClassType classType = new ClassType("MyClass");
+        ClassDecl classDecl = new ClassDecl(classType, Optional.empty(), fields, methods);
+
+        Program prog = new Program(new ArrayList<>(List.of(classDecl)));
+        NameAnalyzer na = new NameAnalyzer();
+        na.visit(prog);
+
+        assertTrue(na.getNumErrors() > 0, "Duplicate class field declarations should cause an error");
+    }
+
+    /**
+     * Test that duplicate method declarations in a class are flagged.
+     */
+    @Test
+    void testDuplicateClassMethods() {
+        // No fields.
+        List<VarDecl> fields = new ArrayList<>();
+
+        // Create two method declarations with the same name.
+        FunDef method1 = new FunDef(BaseType.INT, "method", new ArrayList<>(), new Block(new ArrayList<>(), new ArrayList<>()));
+        FunDef method2 = new FunDef(BaseType.INT, "method", new ArrayList<>(), new Block(new ArrayList<>(), new ArrayList<>()));
+        List<FunDef> methods = new ArrayList<>();
+        methods.add(method1);
+        methods.add(method2);
+
+        ClassType classType = new ClassType("MyClass");
+        ClassDecl classDecl = new ClassDecl(classType, Optional.empty(), fields, methods);
+
+        Program prog = new Program(new ArrayList<>(List.of(classDecl)));
+        NameAnalyzer na = new NameAnalyzer();
+        na.visit(prog);
+
+        assertTrue(na.getNumErrors() > 0, "Duplicate class method declarations should cause an error");
+    }
+
+    /**
+     * Test that a class can inherit from another without error.
+     */
+    @Test
+    void testClassInheritance() {
+        // Superclass with one field and one method.
+        VarDecl superField = new VarDecl(BaseType.INT, "field");
+        FunDef superMethod = new FunDef(BaseType.INT, "method", new ArrayList<>(), new Block(new ArrayList<>(), new ArrayList<>()));
+        ClassType superClassType = new ClassType("SuperClass");
+        ClassDecl superClassDecl = new ClassDecl(superClassType, Optional.empty(),
+                new ArrayList<>(List.of(superField)), new ArrayList<>(List.of(superMethod)));
+
+        // Subclass inherits from SuperClass and declares its own members.
+        VarDecl subField = new VarDecl(BaseType.CHAR, "subField");
+        FunDef subMethod = new FunDef(BaseType.CHAR, "subMethod", new ArrayList<>(), new Block(new ArrayList<>(), new ArrayList<>()));
+        ClassType subClassType = new ClassType("SubClass");
+        // Note: Here the subclass specifies its superclass.
+        ClassDecl subClassDecl = new ClassDecl(subClassType, Optional.of(superClassType),
+                new ArrayList<>(List.of(subField)), new ArrayList<>(List.of(subMethod)));
+
+        Program prog = new Program(new ArrayList<>(List.of(superClassDecl, subClassDecl)));
+        NameAnalyzer na = new NameAnalyzer();
+        na.visit(prog);
+
+        assertEquals(0, na.getNumErrors(), "Valid class inheritance should not produce errors");
+    }
+
+    /**
+     * Test that instantiating a declared class via a NewInstanceExpr is valid.
+     */
+    @Test
+    void testValidClassInstantiation() {
+        // Declare a class with one field and one method.
+        VarDecl field = new VarDecl(BaseType.INT, "field");
+        FunDef method = new FunDef(BaseType.INT, "method", new ArrayList<>(), new Block(new ArrayList<>(), new ArrayList<>()));
+        ClassType classType = new ClassType("MyClass");
+        ClassDecl classDecl = new ClassDecl(classType, Optional.empty(),
+                new ArrayList<>(List.of(field)), new ArrayList<>(List.of(method)));
+
+        // Create a new instance of the class.
+        NewInstanceExpr newInstance = new NewInstanceExpr(classType);
+        Return ret = new Return(newInstance);
+        Block block = new Block(new ArrayList<>(), new ArrayList<>(List.of(ret)));
+        FunDef mainFunc = new FunDef(BaseType.INT, "main", new ArrayList<>(), block);
+
+        // The program contains both the class declaration and the main function.
+        Program prog = new Program(new ArrayList<>(List.of(classDecl, mainFunc)));
+        NameAnalyzer na = new NameAnalyzer();
+        na.visit(prog);
+
+        assertEquals(0, na.getNumErrors(), "Valid class instantiation should not produce errors");
     }
 }

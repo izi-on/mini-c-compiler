@@ -125,7 +125,7 @@ public class ASTPrinter {
 
                 case FieldAccessExpr fa ->
                         nodePartsPrintOrder(
-                                Stream.of(fa.struct),
+                                Stream.of(fa.structOrClass),
                                 Stream.of(fa.field)
                         );
 
@@ -134,6 +134,8 @@ public class ASTPrinter {
                                 Stream.of(f.name),
                                 f.args.stream()
                         );
+                case ClassType ct ->
+                        nodePartsPrintOrder(Stream.of(ct.name));
 
                 default ->
                         nodePartsPrintOrder(node.children().stream());

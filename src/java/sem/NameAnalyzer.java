@@ -3,11 +3,18 @@ package sem;
 import ast.*;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Stream;
+import java.util.concurrent.atomic.AtomicReference;
+
 import sem.error.*;
 
 public class NameAnalyzer extends BaseSemanticAnalyzer {
 
+	public void withSuperClassScope(Scope superClassScope, Runnable r) {
+		Scope oldScope = scope;
+		scope = new Scope(superClassScope);
+		r.run();
+		scope = oldScope;
+	}
 	public static void addDummyFuncs(Program prog) {
 		// Create an empty block (with no declarations and no statements)
 		Block emptyBlock = new Block(new ArrayList<>(), new ArrayList<>());
@@ -205,10 +212,44 @@ public class NameAnalyzer extends BaseSemanticAnalyzer {
 				f.args.forEach(this::visit);
 			}
 
+			case InstanceFunCallExpr f -> {} // handled by the type analyzer
+
 			case StructTypeDecl std -> {
 				withNewScope(() -> {
 					std.varDecls.forEach(this::visit);
 				});
+			}
+
+			case ClassDecl classDecl -> {
+				if (classDecl.superClassType.isPresent()) {
+					// make sure that superClassType is different
+					// from the class name
+					if (classDecl.superClassType.get().name.equals(classDecl.name)) {
+						error("Class cannot extend itself: " + classDecl.name);
+					}
+
+					// check if the super class is declared
+					Symbol superClassSym = scope.lookup(classDecl.superClassType.get().name);
+					if (superClassSym == null) {
+						error("Class " + classDecl.superClassType.get().name + " is not declared or not found in symbol table");
+						return;
+					} else if (!(superClassSym instanceof ClassSymbol)) {
+						error(new SymbolMismatchErr(new ClassSymbol(), superClassSym));
+						return;
+					}
+
+					withSuperClassScope(((ClassSymbol) superClassSym).classScope, () -> {
+						classDecl.varDecls.forEach(this::visit);
+					});
+				} else {
+					AtomicReference<Scope> classScope = new AtomicReference<>(scope);
+					withNewScope(() -> {
+						classDecl.varDecls.forEach(this::visit);
+						classDecl.funDefs.forEach(this::visit);
+						classScope.set(getScope()); // capture the scope of the class
+					});
+					scope.put(new ClassSymbol(classDecl.name, classDecl.curClassType, classScope.get()));
+				}
 			}
 
 			default -> {

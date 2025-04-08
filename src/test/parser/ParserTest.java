@@ -1,5 +1,7 @@
 package parser;
 
+import ast.ASTPrinter;
+import ast.Program;
 import org.junit.Test;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -795,7 +797,8 @@ public class ParserTest {
             """;
 
         Parser parser = createParserFromString(input);
-        parser.parse();
+        Program program = parser.parse();
+        new ASTPrinter(new PrintWriter(System.out)).visit(program); // print to stdout
 
         assertEquals("Struct containing an array of class instances must parse correctly.", 0, parser.getNumErrors());
     }
@@ -858,7 +861,8 @@ public class ParserTest {
                         """;
 
         Parser parser = createParserFromString(input);
-        parser.parse();
+        Program program = parser.parse();
+        new ASTPrinter(new PrintWriter(System.out)).visit(program); // print to stdout
 
         assertEquals("Struct containing an array of class instances must parse correctly.", 0, parser.getNumErrors());
     }

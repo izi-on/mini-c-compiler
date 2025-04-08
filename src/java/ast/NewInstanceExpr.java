@@ -11,6 +11,6 @@ public final class NewInstanceExpr extends Expr {
 
     @Override
     public List<ASTNode> children() {
-        return null;
+        return List.of(classType);
     }
 }
