@@ -803,6 +803,8 @@ public class ParserTest {
         assertEquals("Struct containing an array of class instances must parse correctly.", 0, parser.getNumErrors());
     }
 
+
+
     @Test
     public void testClassExamples() throws IOException {
         String input =
@@ -855,9 +857,8 @@ public class ParserTest {
                                         print_s((char*)"Be ready for the exam!\\n");
                                     else
                                         print_s((char*)"Be ready for the project implementation!:)\\n");
-                                     
                                  }
-                                 
+
                         """;
 
         Parser parser = createParserFromString(input);
@@ -866,4 +867,247 @@ public class ParserTest {
 
         assertEquals("Struct containing an array of class instances must parse correctly.", 0, parser.getNumErrors());
     }
+    @Test
+    public void testNestedClassDeclaration() throws IOException {
+        String input = """
+            class Outer {
+                int getInnerA() {
+                    class Inner i;
+                    i = new class Inner();
+                    i.a = 5;
+                    return i.a;
+                }
+            }
+            int main() {
+                class Outer o;
+                o = new class Outer();
+                return o.getInnerA();
+            }
+            """;
+        Parser parser = createParserFromString(input);
+        parser.parse();
+        assertEquals("Nested class declaration should have no semantic errors.",
+                0, parser.getNumErrors());
+    }
+
+    // Extra Test 3: Self-reference in a Class Field (should pass)
+    @Test
+    public void testSelfReferenceField() throws IOException {
+        String input = """
+            class Node {
+                class Node next;
+            }
+            int main() {
+                class Node n;
+                n = new class Node();
+                n.next = new class Node();
+                return 0;
+            }
+            """;
+        Parser parser = createParserFromString(input);
+        parser.parse();
+        assertEquals("Self-reference in a class field should have no semantic errors.",
+                0, parser.getNumErrors());
+    }
+
+    // Extra Test 4: Valid Method Overloading (should pass if supported)
+    @Test
+    public void testMethodOverloading() throws IOException {
+        String input = """
+            class Overload {
+                int foo() { return 1; }
+                int foo(int x) { return x + 1; }
+            }
+            int main() {
+                class Overload o;
+                int a;
+                int b;
+                o = new class Overload();
+                a = o.foo();
+                b = o.foo(5);
+                return a + b;
+            }
+            """;
+        Parser parser = createParserFromString(input);
+        parser.parse();
+        assertEquals("Method overloading should have no semantic errors.",
+                0, parser.getNumErrors());
+    }
+
+    // Extra Test 5: Multiple Field Declarations (should pass)
+    @Test
+    public void testMultipleFieldDeclarations() throws IOException {
+        String input = """
+            class MultiField {
+                int a;
+                int b;
+            }
+            int main() {
+                class MultiField m;
+                m = new class MultiField();
+                m.a = 3;
+                m.b = 4;
+                return m.a + m.b;
+            }
+            """;
+        Parser parser = createParserFromString(input);
+        parser.parse();
+        assertEquals("Multiple field declarations in one class should have no semantic errors.",
+                0, parser.getNumErrors());
+    }
+
+    // Extra Test 6: Invalid Unrelated Class Cast (should fail)
+    @Test
+    public void testInvalidUnrelatedClassCast() throws IOException {
+        String input = """
+            class A { }
+            class B { }
+            int main() {
+                class A a;
+                a = (A) new class B(); // invalid cast between unrelated classes
+                return 0;
+            }
+            """;
+        Parser parser = createParserFromString(input);
+        parser.parse();
+        assertTrue("Casting between unrelated classes should trigger a semantic error.",
+                parser.getNumErrors() > 0);
+    }
+
+// ==== Additional Parser Tests for Class-Related Features ====
+
+    @Test
+    public void testEmptyClassDeclaration() throws IOException {
+        String input = """
+        class EmptyClass { }
+        int main() { return 0; }
+        """;
+        Parser parser = createParserFromString(input);
+        parser.parse();
+        assertEquals("Empty class declarations should parse without errors.",
+                0, parser.getNumErrors());
+    }
+
+    @Test
+    public void testClassOnlyMethods() throws IOException {
+        String input = """
+        class MethodsOnly {
+            void method1() { return; }
+            int method2(int x) { return x; }
+        }
+        int main() { 
+            class MethodsOnly mo;
+            mo = new class MethodsOnly();
+            mo.method1();
+            return mo.method2(10);
+        }
+        """;
+        Parser parser = createParserFromString(input);
+        parser.parse();
+        assertEquals("Class with only methods should parse without errors.",
+                0, parser.getNumErrors());
+    }
+
+    @Test
+    public void testClassSelfPointer() throws IOException {
+        String input = """
+        class Node {
+            class Node* next;
+            int val;
+        }
+        int main() {
+            class Node n;
+            n = new class Node();
+            n.next = new class Node();
+            n.val = 5;
+            (*n.next).val = 10;
+            return n.val + (*n.next).val;
+        }
+        """;
+        Parser parser = createParserFromString(input);
+        parser.parse();
+        assertEquals("Class self-reference with pointers should parse correctly.",
+                0, parser.getNumErrors());
+    }
+
+    @Test
+    public void testMultipleClassInstancesInExpression() throws IOException {
+        String input = """
+        class A { int val; }
+        int main() {
+            class A a; class A b;
+            a = new class A(); b = new class A();
+            a.val = 2; b.val = 3;
+            return a.val * b.val;
+        }
+        """;
+        Parser parser = createParserFromString(input);
+        parser.parse();
+        assertEquals("Multiple class instances in an expression should parse without errors.",
+                0, parser.getNumErrors());
+    }
+
+    @Test
+    public void testClassInstanceArrayDecl() throws IOException {
+        String input = """
+        class Item { int val; }
+        int main() {
+            class Item arr[5];
+            return 0;
+        }
+        """;
+        Parser parser = createParserFromString(input);
+        parser.parse();
+        assertEquals("Array declaration of class instances should parse correctly if allowed.",
+                0, parser.getNumErrors());
+    }
+
+    @Test
+    public void testChainedInstanceMethodCalls() throws IOException {
+        String input = """
+        class Chain {
+            class Chain next() { return new class Chain(); }
+            int value() { return 1; }
+        }
+        int main() {
+            class Chain c;
+            c = new class Chain();
+            return c.next().next().value();
+        }
+        """;
+        Parser parser = createParserFromString(input);
+        parser.parse();
+        assertEquals("Chained method calls should parse without errors.",
+                0, parser.getNumErrors());
+    }
+
+    @Test
+    public void testNestedClassInsideMethodShouldFail() throws IOException {
+        String input = """
+        class Outer {
+            void method() {
+                class Inner { int x; }
+            }
+        }
+        int main() { return 0; }
+        """;
+        Parser parser = createParserFromString(input);
+        parser.parse();
+        assertTrue("Nested class declarations inside methods should trigger parser errors.",
+                parser.getNumErrors() > 0);
+    }
+
+    @Test
+    public void testClassEmpty() throws IOException {
+        String input = """
+                class SomeClass {
+                }
+                
+                int main() {return 0;}
+                """;
+        Parser parser = createParserFromString(input);
+        parser.parse();
+        assertEquals("Empty class should parse without errors.", 0, parser.getNumErrors());
+    }
+
 }

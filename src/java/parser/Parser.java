@@ -177,7 +177,8 @@ public class Parser extends CompilerPass {
         }
         expect(Category.LBRA);
 
-        if (!accept(Category.INT, Category.CHAR, Category.VOID, Category.STRUCT, Category.CLASS)) { // no decls
+        if (accept(Category.RBRA)) { // no decls
+            nextToken();
             return new ClassDecl(new ClassType(className), superClassType, List.of(), List.of());
         }
 
