@@ -1,5 +1,6 @@
 package gen;
 
+import ast.ClassDecl;
 import ast.FunDef;
 import ast.Program;
 import gen.asm.*;
@@ -17,6 +18,9 @@ public class ProgramCodeGen extends CodeGen {
     }
 
     public void generate(Program p) {
+        // create virtual tables for each method in each class
+        MemContext.setVirtualMaps(new ClassVirtualTableGetter().visit(p));
+
         // allocate all variables
         MemAllocCodeGen allocator = MemContext.newAllocator(asmProg);
         allocator.visit(p); // will also hold information for offsets of declarations
@@ -34,6 +38,8 @@ public class ProgramCodeGen extends CodeGen {
                     AggregateFunctionImplementations builtInFunctions;
                     FunCodeGen fcg = new FunCodeGen(asmProg);
                     fcg.visit(fd);
+                }
+                case ClassDecl cd -> {
                 }
                 default -> {}// nothing to do
             }});

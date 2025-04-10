@@ -9,6 +9,12 @@ import sem.error.*;
 
 public class NameAnalyzer extends BaseSemanticAnalyzer {
 
+	public void withScope(Scope scope, Runnable r) {
+		Scope oldScope = this.scope;
+		this.scope = scope;
+		r.run();
+		this.scope = oldScope;
+	}
 	public void withSuperClassScope(Scope superClassScope, Runnable r) {
 		Scope oldScope = scope;
 		scope = new Scope(superClassScope);
@@ -221,6 +227,7 @@ public class NameAnalyzer extends BaseSemanticAnalyzer {
 			}
 
 			case ClassDecl classDecl -> {
+				Scope classScope = new Scope(scope);
 				if (classDecl.superClassType.isPresent()) {
 					// make sure that superClassType is different
 					// from the class name
@@ -238,18 +245,13 @@ public class NameAnalyzer extends BaseSemanticAnalyzer {
 						return;
 					}
 
-					withSuperClassScope(((ClassSymbol) superClassSym).classScope, () -> {
-						classDecl.varDecls.forEach(this::visit);
-					});
-				} else {
-					AtomicReference<Scope> classScope = new AtomicReference<>(scope);
-					withNewScope(() -> {
-						classDecl.varDecls.forEach(this::visit);
-						classDecl.funDefs.forEach(this::visit);
-						classScope.set(getScope()); // capture the scope of the class
-					});
-					scope.put(new ClassSymbol(classDecl.name, classDecl.curClassType, classScope.get()));
+					classScope.setOuter(((ClassSymbol) superClassSym).classScope); // set the outer scope to the super class scope
 				}
+				scope.put(new ClassSymbol(classDecl.name, classDecl.curClassType, classScope));
+				withScope(classScope, () -> {
+					classDecl.varDecls.forEach(this::visit);
+					classDecl.funDefs.forEach(this::visit);
+				});
 			}
 
 			default -> {

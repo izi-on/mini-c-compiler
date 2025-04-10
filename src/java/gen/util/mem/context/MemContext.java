@@ -1,5 +1,6 @@
 package gen.util.mem.context;
 
+import ast.ClassType;
 import ast.Decl;
 import gen.MemAllocCodeGen;
 import gen.asm.AssemblyProgram;
@@ -7,6 +8,9 @@ import gen.asm.Label;
 import gen.util.mem.FuncStackFrame;
 import gen.util.mem.StackFrame;
 import gen.util.value_holder.ValueHolder;
+
+import java.util.List;
+import java.util.Map;
 
 public class MemContext {
 
@@ -28,6 +32,10 @@ public class MemContext {
         MemAllocCodeGen memAllocCodeGen = new MemAllocCodeGen(asmProg);
         setAllocator(memAllocCodeGen);
         return memAllocCodeGen;
+    }
+
+    public static void setVirtualMaps(Map<ClassType, Map<String, List<Label>>> mapClassToVirtualTable) {
+        INSTANCE.mapClassToVirtualTable = mapClassToVirtualTable;
     }
 
     public static class Var {
@@ -64,6 +72,7 @@ public class MemContext {
     static MemContext INSTANCE;
     private MemAllocCodeGen allocator;
     private StackFrame stackFrame;
+    private Map<ClassType, Map<String, List<Label>>> mapClassToVirtualTable;
     private MemContext() { }
 
     static {

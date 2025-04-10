@@ -403,4 +403,45 @@ int main() {
         String output = runCode(code);
         assertEquals(expectedOutput, output, "Ultra high stress register allocation test");
     }
-} 
+
+    @Test
+    public void testClassGenVirtualMaps() throws InterruptedException, IOException {
+        String code =
+                """
+                        class Animal {
+                            void speak() {
+                                print_s((char*)"Animal sound\\n");
+                            }
+                        }
+                        class Bird extends Animal {
+                            void speak() {
+                                print_s((char*)"Chirp\\n");
+                            }
+                        }
+                        class Dog extends Animal {
+                            void speak() {
+                                print_s((char*)"Woof\\n");
+                            }
+                        }
+                        class Doberman extends Dog {
+                            void speak() {
+                                print_s((char*)"Bark\\n");
+                            }
+                            void fetch() {
+                                print_s((char*)"Fetching\\n");
+                            }
+                        }
+                        int main() {
+                            class Dog d;
+                            d = new class Dog();
+                            d.speak();
+                            return 0;
+                        }
+
+                                        """;
+
+        String expectedOutput = "Woof\n";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "");
+    }
+}
