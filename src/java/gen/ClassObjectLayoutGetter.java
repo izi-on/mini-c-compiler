@@ -41,13 +41,14 @@ public class ClassObjectLayoutGetter {
                         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
                 // get highest offset
-                int offset = superClassLayout.values().stream().max(Integer::compareTo).orElse(0) + TypeSizeGetter.WORD_SIZE; // 0 is reserved for the vtable
+                int offset = superClassLayout.values().stream().max(Integer::compareTo).orElse(0) + TypeSizeGetter.WORD_SIZE;
                 for (VarDecl varDecl : mapClassTypeToDecl.get(curClass).varDecls) {
                     // add varDecl to the layout
                     curClassLayout.put(varDecl.name, offset);
                     // increment offset
                     offset += (PassByRef.ifIs(varDecl.type).getTruth()) ? TypeSizeGetter.WORD_SIZE : TypeSizeGetter.getSize(varDecl.type);
                 }
+
                 // add empty var decl to mark the highest offset
                 curClassLayout.put("empty%", offset);
                 // add the layout to the map

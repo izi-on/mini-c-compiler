@@ -197,10 +197,6 @@ public class ExprValCodeGen extends CodeGen {
 
             case SizeOfExpr sof -> {
                 Register r = Register.Virtual.create();
-                if (sof.sizeOfType instanceof ClassType) {
-                    ts.emit(OpCode.ADDI, r, Register.Arch.zero, TypeSizeGetter.WORD_SIZE);
-                    return new ValueHolder.OnRegister(asmProg, sof, r);
-                }
                 ts.emit(OpCode.ADDI, r, Register.Arch.zero, TypeSizeGetter.getSize(sof.sizeOfType));
                 return new ValueHolder.OnRegister(asmProg, sof, r);
             }
@@ -225,9 +221,11 @@ public class ExprValCodeGen extends CodeGen {
                                 return new ValueHolder.OnRegister(asmProg, new PointerType(subtype), addr);
                             }).orElse(new ValueHolder.OnMemoryAddr(asmProg, ve, addr));
                         })
-                        .computeIfClassField(offsetOfField -> {
+                        .computeIfClassField( (offsetOfObjRef, offsetOfFieldInObjLayout) -> {
                             Register addr = Register.Virtual.create();
-                            ts.emit(OpCode.ADDIU, addr, Register.Arch.fp, offsetOfField);
+                            ts.emit(OpCode.ADDIU, addr, Register.Arch.fp, offsetOfObjRef);
+                            ts.emit(OpCode.LW, addr, addr, offsetOfFieldInObjLayout); // load the pointer to the object layout
+                            ts.emit(OpCode.ADDIU, addr, addr, offsetOfFieldInObjLayout); // load the pointer to the field in the object layout
                             return PassByRef.ifIs(ve.type).then(subtype -> {
                                 return new ValueHolder.OnRegister(asmProg, new PointerType(subtype), addr);
                             }).orElse(new ValueHolder.OnMemoryAddr(asmProg, ve, addr));
@@ -293,20 +291,34 @@ public class ExprValCodeGen extends CodeGen {
             case NewInstanceExpr newInstanceExpr -> {
                 ClassType classType = newInstanceExpr.classType;
                 Label label = MemContext.getVTableLabel(classType);
+
+                // register with label addr
                 Register labelAddr = Register.Virtual.create();
                 ts.emit(OpCode.LA, labelAddr, label);
-                return new ValueHolder.OnRegister(asmProg, newInstanceExpr, labelAddr);
+
+                // create stack offset for the object layout
+                int offset = MemContext.getObjectLayouts().get(classType).values().stream().max(Integer::compareTo).orElseThrow();
+                ts.emit(OpCode.ADDIU, Register.Arch.sp, Register.Arch.sp, -offset); // make space for the object layout
+
+                // save the label addr at the beginning of the object layout
+                ts.emit(OpCode.SW, labelAddr, Register.Arch.sp, 0);
+
+                Register objectAddr = Register.Virtual.create();
+                ts.emit(OpCode.ADDIU, objectAddr, Register.Arch.sp, 0); // object addr is the beginning of the object layout
+
+                return new ValueHolder.OnRegister(asmProg, newInstanceExpr, objectAddr);
             }
 
             case InstanceFunCallExpr instanceFunCallExpr -> {
                 ts.emit("BEGIN INSTANCE FUNCALL EXPR FOR " + instanceFunCallExpr.funCallExpr.name);
 
                 // get the address of the object to implicitly pass
-                Register addrOfObj = (new ExprAddrCodeGen(asmProg)).visit(instanceFunCallExpr.instanceExpr);
+                Register addrOfClassPtr = (new ExprAddrCodeGen(asmProg)).visit(instanceFunCallExpr.instanceExpr);
 
                 // get the virtual table of the object
                 Register vtableAddr = Register.Virtual.create();
-                ts.emit(OpCode.LW, vtableAddr, addrOfObj, 0);
+                ts.emit(OpCode.LW, vtableAddr, addrOfClassPtr, 0); // load the pointer to the object layout
+                ts.emit(OpCode.LW, vtableAddr, vtableAddr, 0); // load the pointer to the virtual table
 
                 // get the offset of the method to call in the table
                 int methodOrder = MemContext.getVirtualMapMethodOrder((ClassType) instanceFunCallExpr.instanceExpr.type).indexOf(instanceFunCallExpr.funCallExpr.name);
@@ -324,7 +336,7 @@ public class ExprValCodeGen extends CodeGen {
                 // first arg is a pointer to the object layout
                 ts.emit("Pass the pointer as first arg");
                 ts.emit(OpCode.ADDIU, Register.Arch.sp, Register.Arch.sp, -TypeSizeGetter.getSizeWordAlignmentForFunc(new PointerType()));
-                ts.emit(OpCode.SW, addrOfObj, Register.Arch.sp, 0); // store the pointer to the object on the stack
+                ts.emit(OpCode.SW, addrOfClassPtr, Register.Arch.sp, 0); // store the pointer to the object on the stack
 
                 // put args on stack
                 f.args.subList(1, f.args.size()).forEach(arg -> {

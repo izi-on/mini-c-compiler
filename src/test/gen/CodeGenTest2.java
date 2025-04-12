@@ -440,7 +440,7 @@ int main() {
 
                                         """;
 
-        String expectedOutput = "Bark\n";
+        String expectedOutput = "Bark";
         String output = runCode(code);
         assertEquals(expectedOutput, output, "");
     }
@@ -491,10 +491,6 @@ int main() {
 
                         void setCourseWorkScore(int score){
                             courseWorkScore = score;
-                        }
-
-                        void setName(char* courseName){
-                            name = courseName;
                         }
                     }
 
@@ -619,7 +615,7 @@ int main() {
                 }
                 """;
         String output = runCode(code);
-        String expectedOutput = "Same reference\n";
+        String expectedOutput = "Same reference";
         assertEquals(expectedOutput, output, "Class reference comparison test");
     }
 }

@@ -42,7 +42,6 @@ public class PassByRef {
     public static ToExecute ifIs(Type type) {
         return switch (type) {
             case ArrayType at -> new ToExecute(at.arrayedType);
-            case ClassType ct -> new ToExecute(ct);
             default -> new Null();
         };
     }

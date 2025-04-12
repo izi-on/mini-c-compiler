@@ -7,6 +7,8 @@ import ast.VarDecl;
 import gen.MemAllocCodeGen;
 import gen.asm.AssemblyProgram;
 import gen.asm.Label;
+import gen.asm.OpCode;
+import gen.asm.Register;
 import gen.util.mem.FuncStackFrame;
 import gen.util.mem.StackFrame;
 import gen.util.value_holder.ValueHolder;
@@ -34,7 +36,7 @@ public class MemContext {
 
     @FunctionalInterface
     public interface ClassVarAction {
-        ValueHolder apply(int offsetOfVar);
+        ValueHolder apply(int offsetOfObjRef, int offsetOfFieldInLayout);
     }
 
     public static MemAllocCodeGen newAllocator(AssemblyProgram asmProg) {
@@ -103,8 +105,7 @@ public class MemContext {
                 int offsetOfVar = funcStackFrame.offsetOf(pointerToObject).orElseThrow();
                 Map<String, Integer> objectLayout = MemContext.getObjectLayouts().get(((PointerType)pointerToObject.type).pointerizedType);
                 int offsetInObjectLayout = objectLayout.get(decl.name);
-                int offsetOfField = offsetOfVar + offsetInObjectLayout;
-                value = r.apply(offsetOfField);
+                value = r.apply(offsetOfVar, offsetInObjectLayout);
             }
             return this;
         }

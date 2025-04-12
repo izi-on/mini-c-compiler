@@ -56,9 +56,11 @@ public class ExprAddrCodeGen extends CodeGen {
                             });
                             return new ValueHolder.OnRegister(asmProg, new IntLiteral(), r);
                         })
-                        .computeIfClassField(offsetOfField -> {
+                        .computeIfClassField((offsetOfObjRef, offsetOfFieldInLayout) -> {
                             Register r = Register.Virtual.create();
-                            ts.emit(OpCode.ADDIU, r, Register.Arch.fp, offsetOfField);
+                            ts.emit(OpCode.ADDIU, r, Register.Arch.fp, offsetOfObjRef);
+                            ts.emit(OpCode.LW, r, r, 0); // we have pointer to beginning of object layout
+                            ts.emit(OpCode.ADDIU, r, r, offsetOfFieldInLayout);
                             return new ValueHolder.OnRegister(asmProg, new IntLiteral(), r);
                         })
                         .getValue()
@@ -116,7 +118,8 @@ public class ExprAddrCodeGen extends CodeGen {
                     Map<String, Integer> objectLayout = MemContext.getObjectLayouts().get(fa.structOrClass.type);
                     int fieldOffset = objectLayout.get(fa.field);
 
-                    Register addr = visit(fa.structOrClass);
+                    Register addr = visit(fa.structOrClass); // we get the address of the object REFERENCE
+                    ts.emit(OpCode.LW, addr, addr, 0); // now, we have pointer to beginning of object layout
 
                     // calculate address
                     Register r = Register.Virtual.create();

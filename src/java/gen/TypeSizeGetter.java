@@ -29,6 +29,7 @@ public class TypeSizeGetter {
                     case UNKNOWN -> 0;
                     case NONE -> 0;
                 };
+            case ClassType ct -> WORD_SIZE;
             default -> {
                 throw new RuntimeException("Unknown type: " + type);
             }
@@ -57,9 +58,9 @@ public class TypeSizeGetter {
         return switch (type) {
             case ArrayType a -> getSize(a.arrayedType, baseSizeGetter) * a.size;
             case StructType st -> getSize(st.structTypeDecl, baseSizeGetter);
-            case ClassType ct ->
-                 MemContext.getObjectLayouts().get(ct).values().stream().max(Integer::compareTo)
-                        .orElseThrow(() -> new RuntimeException("Class type " + ct + " not found in object layouts")); // reason for max is that we set an empty decl with the highest offset
+//            case ClassType ct ->
+//                 MemContext.getObjectLayouts().get(ct).values().stream().max(Integer::compareTo)
+//                        .orElseThrow(() -> new RuntimeException("Class type " + ct + " not found in object layouts")); // reason for max is that we set an empty decl with the highest offset
             case StructTypeDecl std -> MemContext.getAllocator().getFrameOf(std).orElseThrow().offsetOf(StackItem.POINTER_OFFSET).orElseThrow();
             default -> baseSizeGetter.getSize(type);
         };
