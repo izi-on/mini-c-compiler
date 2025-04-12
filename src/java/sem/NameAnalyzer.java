@@ -207,18 +207,22 @@ public class NameAnalyzer extends BaseSemanticAnalyzer {
 				if (sym == null) {
 					error(new UndeclaredFuncErr(new FunCallExpr(f.name, new ArrayList<>())));
 					return;
-				}
-				else if (!(sym instanceof FunctionSymbol)) {
+				} else if (!(sym instanceof FunctionSymbol)) {
 					error(new SymbolMismatchErr(new FunctionSymbol(), sym));
 					return;
 				}
+
 				FunctionSymbol fSym = (FunctionSymbol) sym;
 				f.fd = fSym.funDef;
 
 				f.args.forEach(this::visit);
 			}
 
-			case InstanceFunCallExpr f -> {} // handled by the type analyzer
+			case InstanceFunCallExpr f -> {
+				visit(f.instanceExpr);
+				// dont visit fun call expr, handled by type analysis
+			}
+
 
 			case StructTypeDecl std -> {
 				withNewScope(() -> {

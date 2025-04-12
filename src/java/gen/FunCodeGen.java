@@ -1,9 +1,9 @@
 package gen;
 
 import ast.FunDef;
-import ast.PointerType;
 import gen.asm.*;
 import gen.util.builtin.implementations.functions.*;
+import gen.util.mem.FuncStackFrame;
 import gen.util.mem.context.MemContext;
 import gen.util.mem.StackFrame;
 import gen.util.mem.StackItem;
@@ -255,7 +255,12 @@ public class FunCodeGen extends CodeGen {
         this.asmProg = asmProg;
     }
 
+    public FunCodeGen(AssemblyProgram asmProg, String specifyLabelName) {
+        this.asmProg = asmProg;
+        this.specificLabelName = Optional.of(specifyLabelName);
+    }
 
+    Optional<String> specificLabelName = Optional.empty();
 
     void visit(FunDef fd) {
         // Each function should be produced in its own section.
@@ -269,7 +274,10 @@ public class FunCodeGen extends CodeGen {
             throw new IllegalStateException("No stack frame found for function " + fd.name);
         }
 
-        FunctionAction label = new FunctionLabel(ts, fd.name); // have the label separately because the order for epilogue is not reversed
+        // make sure we reference the correct function label
+        ((FuncStackFrame) funcFrame.get()).func.name = specificLabelName.orElse(fd.name);
+
+        FunctionAction label = new FunctionLabel(ts, specificLabelName.orElse(fd.name)); // have the label separately because the order for epilogue is not reversed
         // 1) create function actions for prologue and epilogue
         FunctionAction cleanStack = new CleanLocalStack(
                 ts,

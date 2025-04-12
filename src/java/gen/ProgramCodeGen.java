@@ -18,8 +18,17 @@ public class ProgramCodeGen extends CodeGen {
     }
 
     public void generate(Program p) {
+        // before we generate any code, convert method and method invocations to hold an implicit param for 'this'
+        new ImplicitThisParam().visit(p);
+        new MarkFunctionsAsMethodCalls().visit(p);
+
         // create virtual tables for each method in each class
-        MemContext.setVirtualMaps(new ClassVirtualTableGetter().visit(p));
+        ClassVirtualTableGetter vTableGetter = new ClassVirtualTableGetter();
+        MemContext.setVirtualMaps(vTableGetter.visit(p));
+        MemContext.setVirtualMapMethodOrder(vTableGetter.mapToMethodOrder);
+
+        // create object layouts for each class
+        MemContext.setObjectLayouts(new ClassObjectLayoutGetter().visit(p));
 
         // allocate all variables
         MemAllocCodeGen allocator = MemContext.newAllocator(asmProg);
@@ -35,14 +44,12 @@ public class ProgramCodeGen extends CodeGen {
         p.decls.forEach((d) -> {
             switch(d) {
                 case FunDef fd -> {
-                    AggregateFunctionImplementations builtInFunctions;
-                    FunCodeGen fcg = new FunCodeGen(asmProg);
-                    fcg.visit(fd);
+                    new FunCodeGen(asmProg).visit(fd);
                 }
                 case ClassDecl cd -> {
+                    new ClassCodeGen(asmProg).visit(cd);
                 }
                 default -> {}// nothing to do
             }});
-
     }
 }

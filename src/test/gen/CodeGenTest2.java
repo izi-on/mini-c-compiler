@@ -433,15 +433,193 @@ int main() {
                         }
                         int main() {
                             class Dog d;
-                            d = new class Dog();
+                            d = (class Dog) new class Doberman();
                             d.speak();
                             return 0;
                         }
 
                                         """;
 
-        String expectedOutput = "Woof\n";
+        String expectedOutput = "Bark\n";
         String output = runCode(code);
         assertEquals(expectedOutput, output, "");
+    }
+
+    @Test
+    public void testClass() throws IOException, InterruptedException {
+        String code = """
+                class A {
+                    void speak() {
+                        print_s((char*)"A");
+                    }
+                    
+                    void bark() {
+                        print_s((char*)"Bark");
+                    }
+                }
+                
+                int main() {
+                    class A a;
+                    a = new class A();
+                    a.speak();
+                    a.bark();
+                }
+                """;
+        String output = runCode(code);
+        String expectedOutput = "ABark";
+        assertEquals(expectedOutput, output, "Class A test");
+    }
+
+    @Test
+    public void testExample() throws IOException, InterruptedException {
+        String code = """
+                class Course {
+                        char name[20];
+                        int credit;
+                        int courseWorkScore;
+
+                        void whereToAttend(){
+                            print_s((char*)"Not determined! The course will be held virtually or in person!\\n");
+                        }
+
+                        int hasExam(){
+                            if(courseWorkScore == 100)
+                                return 0;
+                            else
+                                return 1;
+                        }
+
+                        void setCourseWorkScore(int score){
+                            courseWorkScore = score;
+                        }
+
+                        void setName(char* courseName){
+                            name = courseName;
+                        }
+                    }
+
+                int main() {
+                   class Course c;
+                   c = new class Course();
+                   c.setCourseWorkScore(100);
+                   if (c.hasExam()){
+                       print_s((char*)"exam!");
+                   }
+                   else{
+                       print_s((char*)"No Exam!");
+                   }
+                }
+                """;
+        String output = runCode(code);
+        String expectedOutput = "No Exam!";
+        assertEquals(expectedOutput, output, "Branching logic test");
+    }
+
+    @Test
+    public void testClassFieldAccessAndAssignment() throws IOException, InterruptedException {
+        String code = """
+                class A {
+                    int x;
+                    int y;
+                }
+
+                int main() {
+                    class A a;
+                    a = new class A();
+                    a.x = 5;
+                    a.y = 10;
+                    print_i(a.x);
+                    print_i(a.y);
+                }
+                """;
+        String output = runCode(code);
+        String expectedOutput = "510";
+        assertEquals(expectedOutput, output, "Class field access and assignment test");
+    }
+
+    @Test
+    public void testClassDynamicDispatch() throws IOException, InterruptedException {
+        String code = """
+                class Animal {
+                    void speak() {
+                        print_s((char*)"Animal sound\\n");
+                    }
+                }
+
+                class Dog extends Animal {
+                    void speak() {
+                        print_s((char*)"Woof\\n");
+                    }
+                }
+
+                int main() {
+                    class Animal a;
+                    a = (class Animal) new class Dog();
+                    a.speak();
+                }
+                """;
+        String output = runCode(code);
+        String expectedOutput = "Woof";
+        assertEquals(expectedOutput, output, "Class dynamic dispatch test");
+    }
+
+    @Test
+    public void testSizeOfClassShouldBe4() throws IOException, InterruptedException {
+        String code = """
+                class A {
+                    int x;
+                    int y;
+                }
+
+                int main() {
+                    print_i(sizeof(class A));
+                }
+                """;
+        String output = runCode(code);
+        String expectedOutput = "4";
+        assertEquals(expectedOutput, output, "Size of class test");
+    }
+
+    @Test
+    public void testClassWithArrayField() throws IOException, InterruptedException {
+        String code = """
+                class A {
+                    int arr[10];
+                }
+
+                int main() {
+                    class A a;
+                    a = new class A();
+                    a.arr[0] = 5;
+                    print_i(a.arr[0]);
+                }
+                """;
+        String output = runCode(code);
+        String expectedOutput = "5";
+        assertEquals(expectedOutput, output, "Class with array field test");
+    }
+
+    @Test
+    public void testClassReferenceComparison() throws IOException, InterruptedException {
+        String code = """
+                class A {
+                    int x;
+                }
+
+                int main() {
+                    class A a;
+                    class A b;
+                    a = new class A();
+                    b = a;
+                    if (a == b) {
+                        print_s((char*)"Same reference\\n");
+                    } else {
+                        print_s((char*)"Different reference\\n");
+                    }
+                }
+                """;
+        String output = runCode(code);
+        String expectedOutput = "Same reference\n";
+        assertEquals(expectedOutput, output, "Class reference comparison test");
     }
 }

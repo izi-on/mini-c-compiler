@@ -61,7 +61,7 @@ public class CodeGenTest {
 
             // Step 3: Code Generation
             // Here we use our default register allocator, NaiveRegAlloc.
-            CodeGenerator codegen = new CodeGenerator(GraphColouringRegAlloc.INSTANCE);
+            CodeGenerator codegen = new CodeGenerator(NaiveRegAlloc.INSTANCE);
             Path tempOutput = Files.createTempFile("output", ".asm");
             codegen.emitProgram(prog, tempOutput.toFile());
             System.out.println("Code generated successfully in " + tempOutput.toAbsolutePath());

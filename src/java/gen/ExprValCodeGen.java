@@ -5,11 +5,13 @@ import gen.asm.AssemblyProgram;
 import gen.asm.Label;
 import gen.asm.OpCode;
 import gen.asm.Register;
+import gen.util.mem.FuncStackFrame;
 import gen.util.mem.context.MemContext;
 import gen.util.rules.PassByRef;
 import gen.util.value_holder.ValueHolder;
 
 import java.awt.*;
+import java.util.List;
 
 
 /**
@@ -195,6 +197,10 @@ public class ExprValCodeGen extends CodeGen {
 
             case SizeOfExpr sof -> {
                 Register r = Register.Virtual.create();
+                if (sof.sizeOfType instanceof ClassType) {
+                    ts.emit(OpCode.ADDI, r, Register.Arch.zero, TypeSizeGetter.WORD_SIZE);
+                    return new ValueHolder.OnRegister(asmProg, sof, r);
+                }
                 ts.emit(OpCode.ADDI, r, Register.Arch.zero, TypeSizeGetter.getSize(sof.sizeOfType));
                 return new ValueHolder.OnRegister(asmProg, sof, r);
             }
@@ -219,10 +225,28 @@ public class ExprValCodeGen extends CodeGen {
                                 return new ValueHolder.OnRegister(asmProg, new PointerType(subtype), addr);
                             }).orElse(new ValueHolder.OnMemoryAddr(asmProg, ve, addr));
                         })
+                        .computeIfClassField(offsetOfField -> {
+                            Register addr = Register.Virtual.create();
+                            ts.emit(OpCode.ADDIU, addr, Register.Arch.fp, offsetOfField);
+                            return PassByRef.ifIs(ve.type).then(subtype -> {
+                                return new ValueHolder.OnRegister(asmProg, new PointerType(subtype), addr);
+                            }).orElse(new ValueHolder.OnMemoryAddr(asmProg, ve, addr));
+                        })
                         .getValue();
             }
 
             case FunCallExpr f -> {
+                if (f.isMethodCall()) {
+                    // get the object ref (passed as first arg) then
+                    VarDecl objectInstance = ((FuncStackFrame) MemContext.getStackFrame()).func.params.get(0);
+                    // create a new InstanceFunCallExpr with the fun call expr
+                    InstanceFunCallExpr instanceFunCallExpr = new InstanceFunCallExpr(
+                            new VarExpr(objectInstance.name, objectInstance),
+                            f
+                    );
+                    return visit(instanceFunCallExpr);
+                }
+
                 ts.emit("BEGIN FUNCALL EXPR FOR " + f.fd.name);
                 // put args on stack
                 f.args.forEach(arg -> {
@@ -264,6 +288,79 @@ public class ExprValCodeGen extends CodeGen {
 
             case ValueAtExpr v -> {
                 return new ValueHolder.OnMemoryAddr(asmProg, v, (new ExprAddrCodeGen(asmProg)).visit(v));
+            }
+
+            case NewInstanceExpr newInstanceExpr -> {
+                ClassType classType = newInstanceExpr.classType;
+                Label label = MemContext.getVTableLabel(classType);
+                Register labelAddr = Register.Virtual.create();
+                ts.emit(OpCode.LA, labelAddr, label);
+                return new ValueHolder.OnRegister(asmProg, newInstanceExpr, labelAddr);
+            }
+
+            case InstanceFunCallExpr instanceFunCallExpr -> {
+                ts.emit("BEGIN INSTANCE FUNCALL EXPR FOR " + instanceFunCallExpr.funCallExpr.name);
+
+                // get the address of the object to implicitly pass
+                Register addrOfObj = (new ExprAddrCodeGen(asmProg)).visit(instanceFunCallExpr.instanceExpr);
+
+                // get the virtual table of the object
+                Register vtableAddr = Register.Virtual.create();
+                ts.emit(OpCode.LW, vtableAddr, addrOfObj, 0);
+
+                // get the offset of the method to call in the table
+                int methodOrder = MemContext.getVirtualMapMethodOrder((ClassType) instanceFunCallExpr.instanceExpr.type).indexOf(instanceFunCallExpr.funCallExpr.name);
+                if (methodOrder == -1) {
+                    throw new IllegalStateException("Method " + instanceFunCallExpr.funCallExpr.name + " not found in virtual table");
+                }
+
+                Register methodAddr = Register.Virtual.create();
+                ts.emit(OpCode.LW, methodAddr, vtableAddr, methodOrder * TypeSizeGetter.WORD_SIZE); // each entry is 4 bytes
+
+                // get the function expression for easier access
+                FunCallExpr f = instanceFunCallExpr.funCallExpr;
+
+                // _________________ COPIED MOST OF THIS FROM FUNCALL EXPR ________________
+                // first arg is a pointer to the object layout
+                ts.emit("Pass the pointer as first arg");
+                ts.emit(OpCode.ADDIU, Register.Arch.sp, Register.Arch.sp, -TypeSizeGetter.getSizeWordAlignmentForFunc(new PointerType()));
+                ts.emit(OpCode.SW, addrOfObj, Register.Arch.sp, 0); // store the pointer to the object on the stack
+
+                // put args on stack
+                f.args.subList(1, f.args.size()).forEach(arg -> {
+                    ts.emit("LOADING ARG: " + arg.type);
+
+                    ts.emit("GETTING  VALUE");
+                    ValueHolder value = visit(arg);
+                    ts.emit("VALUE CAUGHT");
+
+                    // move stack
+                    ts.emit(OpCode.ADDIU, Register.Arch.sp, Register.Arch.sp, -TypeSizeGetter.getSizeWordAlignmentForFunc(arg.type));
+
+                    // create register for the destination addr
+                    Register destinationAddr = Register.Virtual.create();
+                    ts.emit(OpCode.ADDI, destinationAddr, Register.Arch.sp, 0);
+
+                    // get the value and put it on the stack
+                    value.setTargetAddr(destinationAddr).loadToTargetAddr();
+                });
+
+                // space for return value
+                ts.emit("SPACE FOR RETURN VALUE");
+                ts.emit(OpCode.ADDIU, Register.Arch.sp, Register.Arch.sp, -TypeSizeGetter.getSizeWordAlignmentForFunc(f.type));
+
+                // call function
+                ts.emit("GO TO FUNCTION");
+                ts.emit(OpCode.JALR, methodAddr);
+                ts.emit("BACK FROM FUNCTION");
+
+                // store return value in a register
+                Register returnValAddr = Register.Virtual.create();
+                ts.emit(OpCode.ADDI, returnValAddr, Register.Arch.sp, 0);
+
+                ts.emit("END INSTANCE FUNCALL EXPR FOR " + instanceFunCallExpr.funCallExpr.name);
+                return new ValueHolder.OnMemoryAddr(asmProg, f, returnValAddr);
+                // _____________________ END OF COPIED CODE ______________________
             }
 
             default -> throw new IllegalStateException("Unexpected value: " + e);

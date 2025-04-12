@@ -13,6 +13,10 @@ public final class FunCallExpr extends Expr {
         this.args = args;
     }
 
+    public boolean isMethodCall() {
+        return fd.methodOfClass.isPresent();
+    }
+
     @Override
     public List<ASTNode> children() {
         return new ArrayList<>(args);

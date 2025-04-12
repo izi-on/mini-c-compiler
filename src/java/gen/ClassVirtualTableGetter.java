@@ -2,6 +2,7 @@ package gen;
 
 import ast.*;
 import gen.asm.Label;
+import org.junit.internal.requests.ClassRequest;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -11,6 +12,7 @@ public class ClassVirtualTableGetter {
     // step 2: we will visit root classes, keep a map of the name of the method to a list of its implementations
     // and then when we visit the class we will add any implementations to the list in the map entry. Then, for each
     // key in the map, we will map the most recent label in the list: that would be the virtual table.
+    Map<ClassType, List<String>> mapToMethodOrder = new HashMap<>();
     public Map<ClassType, Map<String, List<Label>>> visit(Program program) {
         List<ClassDecl> classDecls = program.children().stream().filter(ClassDecl.class::isInstance).map(node -> (ClassDecl) node).collect(Collectors.toList());
         Map<ClassType, ClassDecl> mapClassTypeToDecl = new HashMap<>();
@@ -46,13 +48,25 @@ public class ClassVirtualTableGetter {
                         mapClassTypeToVirtualTable.getOrDefault(
                                 mapClassTypeToDecl.get(curClass).superClassType.orElse(curClass), new HashMap<>()
                         )
-                ); // map to function impl
+                );
+
+                // get a copy of the method order of the super class
+                List<String> methodOrder = new ArrayList<>(mapToMethodOrder.getOrDefault(mapClassTypeToDecl.get(curClass).superClassType.orElse(curClass), new ArrayList<>()));
+
                 mapClassTypeToDecl.get(curClass).funDefs.forEach(funDef -> {
                     List<Label> newLabelList = new ArrayList<>(mapToImplementation.getOrDefault(funDef.name, List.of()));
                     newLabelList.add(mapFunDefToLabel.get(funDef));
                     mapToImplementation.put(funDef.name, newLabelList);
                 });
                 mapClassTypeToVirtualTable.put(curClass, mapToImplementation);
+
+                mapToImplementation.forEach((methodName, labelList) -> {
+                    if (!methodOrder.contains(methodName)) {
+                        methodOrder.add(methodName);
+                    }
+                });
+
+                mapToMethodOrder.put(curClass, methodOrder);
 
                 // get next classes to visit
                 nextToVisit.addAll(mapToSubclasses.getOrDefault(curClass, List.of()));

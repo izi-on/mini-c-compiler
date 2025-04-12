@@ -1,5 +1,6 @@
 package sem;
 
+import gen.ImplicitThisParam;
 import util.CompilerPass;
 
 public class SemanticAnalyzer extends CompilerPass {

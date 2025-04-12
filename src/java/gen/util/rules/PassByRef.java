@@ -1,6 +1,7 @@
 package gen.util.rules;
 
 import ast.ArrayType;
+import ast.ClassType;
 import ast.Type;
 import com.sun.jdi.Value;
 import gen.util.value_holder.ValueHolder;
@@ -41,6 +42,7 @@ public class PassByRef {
     public static ToExecute ifIs(Type type) {
         return switch (type) {
             case ArrayType at -> new ToExecute(at.arrayedType);
+            case ClassType ct -> new ToExecute(ct);
             default -> new Null();
         };
     }

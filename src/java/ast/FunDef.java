@@ -2,11 +2,13 @@ package ast;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 public final class FunDef extends Decl {
     public final List<VarDecl> params;
     public Block block;
     public boolean isBuiltin = false;
+    public Optional<ClassType> methodOfClass = Optional.empty();
 
     public FunDef(Type type, String name, List<VarDecl> params, Block block) {
 	    this.type = type;

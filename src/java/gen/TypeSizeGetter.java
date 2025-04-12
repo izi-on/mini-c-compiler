@@ -57,6 +57,9 @@ public class TypeSizeGetter {
         return switch (type) {
             case ArrayType a -> getSize(a.arrayedType, baseSizeGetter) * a.size;
             case StructType st -> getSize(st.structTypeDecl, baseSizeGetter);
+            case ClassType ct ->
+                 MemContext.getObjectLayouts().get(ct).values().stream().max(Integer::compareTo)
+                        .orElseThrow(() -> new RuntimeException("Class type " + ct + " not found in object layouts")); // reason for max is that we set an empty decl with the highest offset
             case StructTypeDecl std -> MemContext.getAllocator().getFrameOf(std).orElseThrow().offsetOf(StackItem.POINTER_OFFSET).orElseThrow();
             default -> baseSizeGetter.getSize(type);
         };
@@ -71,6 +74,7 @@ public class TypeSizeGetter {
             case StructTypeDecl structTypeDecl -> structTypeDecl.varDecls.stream().mapToInt(vdcl -> getAlignmentSize(vdcl.type, g)).max().orElse(0);
             case StructType st -> getAlignmentSize(st.structTypeDecl, g);
             case ArrayType a -> getAlignmentSize(a.arrayedType, g);
+            case ClassType ct -> WORD_SIZE;
             default -> g.getSize(type);
         };
         return alignmentSize;
