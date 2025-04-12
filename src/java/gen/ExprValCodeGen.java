@@ -239,7 +239,7 @@ public class ExprValCodeGen extends CodeGen {
                     VarDecl objectInstance = ((FuncStackFrame) MemContext.getStackFrame()).func.params.get(0);
                     // create a new InstanceFunCallExpr with the fun call expr
                     InstanceFunCallExpr instanceFunCallExpr = new InstanceFunCallExpr(
-                            new VarExpr(objectInstance.name, objectInstance),
+                            new VarExpr(objectInstance.name, objectInstance, objectInstance.type),
                             f
                     );
                     return visit(instanceFunCallExpr);
@@ -313,12 +313,12 @@ public class ExprValCodeGen extends CodeGen {
                 ts.emit("BEGIN INSTANCE FUNCALL EXPR FOR " + instanceFunCallExpr.funCallExpr.name);
 
                 // get the address of the object to implicitly pass
-                Register addrOfClassPtr = (new ExprAddrCodeGen(asmProg)).visit(instanceFunCallExpr.instanceExpr);
+                Register regClassPointer = (new ExprAddrCodeGen(asmProg)).visit(instanceFunCallExpr.instanceExpr); // first, we get the addr of the pointer
+                ts.emit(OpCode.LW, regClassPointer, regClassPointer, 0); // load the pointer to the object layout
 
                 // get the virtual table of the object
                 Register vtableAddr = Register.Virtual.create();
-                ts.emit(OpCode.LW, vtableAddr, addrOfClassPtr, 0); // load the pointer to the object layout
-                ts.emit(OpCode.LW, vtableAddr, vtableAddr, 0); // load the pointer to the virtual table
+                ts.emit(OpCode.LW, vtableAddr, regClassPointer, 0); // load the pointer to the virtual table
 
                 // get the offset of the method to call in the table
                 int methodOrder = MemContext.getVirtualMapMethodOrder((ClassType) instanceFunCallExpr.instanceExpr.type).indexOf(instanceFunCallExpr.funCallExpr.name);
@@ -336,7 +336,7 @@ public class ExprValCodeGen extends CodeGen {
                 // first arg is a pointer to the object layout
                 ts.emit("Pass the pointer as first arg");
                 ts.emit(OpCode.ADDIU, Register.Arch.sp, Register.Arch.sp, -TypeSizeGetter.getSizeWordAlignmentForFunc(new PointerType()));
-                ts.emit(OpCode.SW, addrOfClassPtr, Register.Arch.sp, 0); // store the pointer to the object on the stack
+                ts.emit(OpCode.SW, regClassPointer, Register.Arch.sp, 0); // store the pointer to the object on the stack
 
                 // put args on stack
                 f.args.subList(1, f.args.size()).forEach(arg -> {

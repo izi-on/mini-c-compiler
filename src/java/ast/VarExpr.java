@@ -16,6 +16,12 @@ public final class VarExpr extends Expr {
         this.vd = vd;
     }
 
+    public VarExpr(String name, VarDecl vd, Type type) {
+        this.name = name;
+        this.vd = vd;
+        this.type = type;
+    }
+
     public List<ASTNode> children() {
         return new ArrayList<>();
     }

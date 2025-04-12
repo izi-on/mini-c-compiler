@@ -8,545 +8,6 @@ import java.io.IOException;
 public class CodeGenTest2 extends CodeGenTest {
     @Test
     public void testRegisterAllocationStress() throws InterruptedException, IOException {
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
         String code = """
 // Define complex structs to stress memory layout
 struct Node {
@@ -1348,4 +809,134 @@ int main() {
         String expectedOutput = "MoreDerivedMoreDerivedExtra";
         assertEquals(expectedOutput, output, "Complex casting chain using only upcasting test");
     }
+
+    @Test
+    public void passObjectInFunction() throws IOException, InterruptedException {
+        String code = """
+            class A {
+                int x;
+                int y;
+            }
+
+            void modify(class A obj) {
+                obj.x = 20;
+                obj.y = 30;
+            }
+
+            int main() {
+                class A a;
+                a = new class A();
+                a.x = 5;
+                a.y = 10;
+                modify(a);
+                print_i(a.x); // Should print 20
+                print_i(a.y); // Should print 30
+            }
+            """;
+        String output = runCode(code);
+        String expectedOutput = "2030";
+        assertEquals(expectedOutput, output, "Pass object in function test");
+    }
+
+    @Test
+    public void testCallMethodFromOtherMethod() throws IOException, InterruptedException {
+        String code = """
+            class A {
+                void method2() {
+                    print_s((char*)"Method 2 called\\n");
+                }
+                
+                void method1() {
+                    print_s((char*)"Method 1 called\\n");
+                    method2();
+                }
+            }
+
+            int main() {
+                class A a;
+                a = new class A();
+                a.method1();
+            }
+            """;
+        String output = runCode(code);
+        String expectedOutput = "Method 1 called\nMethod 2 called";
+        assertEquals(expectedOutput, output, "Call method from other method test");
+    }
+
+    @Test
+    public void testClassWithPointerField() throws IOException, InterruptedException {
+        String code = """
+            class A {
+                int* ptr;
+            }
+
+            int main() {
+                class A a;
+                a = new class A();
+                a.ptr = (int*) mcmalloc(sizeof(int));
+                *a.ptr = 42;
+                print_i(*a.ptr);
+            }
+            """;
+        String output = runCode(code);
+        String expectedOutput = "42";
+        assertEquals(expectedOutput, output, "Class with pointer field test");
+    }
+
+    @Test
+    public void testGlobalFunctionCallFromClass() throws IOException, InterruptedException {
+        String code = """
+            void globalFunction() {
+                print_s((char*)"Global function called\\n");
+            }
+
+            class A {
+                void callGlobal() {
+                    globalFunction();
+                }
+            }
+
+            int main() {
+                class A a;
+                a = new class A();
+                a.callGlobal();
+            }
+            """;
+        String output = runCode(code);
+        String expectedOutput = "Global function called";
+        assertEquals(expectedOutput, output, "Global function call from class test");
+    }
+
+    // this function will call a method from another method and access a field
+    @Test
+    public void testMethodCallFromMethodAndFieldAccess() throws IOException, InterruptedException {
+        String code = """
+            class A {
+                int x;
+                int y;
+
+                void printValues() {
+                    print_i(x);
+                    print_i(y);
+                }
+                
+                void setValues(int a, int b) {
+                    x = a;
+                    y = b;
+                    printValues();
+                }
+
+            }
+
+            int main() {
+                class A a;
+                a = new class A();
+                a.setValues(5, 10);
+            }
+            """;
+        String output = runCode(code);
+        String expectedOutput = "510";
+        assertEquals(expectedOutput, output, "Method call from method and field access test");
+    }
+
 }

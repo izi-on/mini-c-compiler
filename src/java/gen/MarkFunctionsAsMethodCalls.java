@@ -17,7 +17,7 @@ public class MarkFunctionsAsMethodCalls {
             case ClassDecl classDecl -> {
                 // Enter the class
                 insideOfClass = Optional.of(classDecl.curClassType);
-                classDecl.funDefs.forEach(this::visit);
+                classDecl.children().forEach(this::visit);
                 insideOfClass = Optional.empty();
             }
             default -> {node.children().forEach(this::visit);}

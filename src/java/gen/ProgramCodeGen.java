@@ -19,8 +19,8 @@ public class ProgramCodeGen extends CodeGen {
 
     public void generate(Program p) {
         // before we generate any code, convert method and method invocations to hold an implicit param for 'this'
-        new ImplicitThisParam().visit(p);
         new MarkFunctionsAsMethodCalls().visit(p);
+        new ImplicitThisParam().visit(p);
 
         // create virtual tables for each method in each class
         ClassVirtualTableGetter vTableGetter = new ClassVirtualTableGetter();
