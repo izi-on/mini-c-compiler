@@ -27,8 +27,6 @@ public class ClassCodeGen extends CodeGen {
                     List<Label> labels = virtualMap.get(funDef.name);
                     Label label = labels.get(labels.size() - 1); // get the last label
 
-                    System.out.println("Emitting " + label);
-
                     // create the function
                     new FunCodeGen(asmProg, label.name).visit(funDef);
                 });

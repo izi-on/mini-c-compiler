@@ -618,4 +618,195 @@ int main() {
         String expectedOutput = "Same reference";
         assertEquals(expectedOutput, output, "Class reference comparison test");
     }
+
+    @Test
+    public void testClassInheritedFields() throws IOException, InterruptedException {
+        String code = """
+                class A {
+                    int x;
+                }
+
+                class B extends A {
+                    int y;
+                }
+
+                int main() {
+                    class B b;
+                    b = new class B();
+                    b.x = 5;
+                    b.y = 10;
+                    print_i(b.x);
+                    print_i(b.y);
+                }
+                """;
+        String output = runCode(code);
+        String expectedOutput = "510";
+        assertEquals(expectedOutput, output, "Class inherited fields test");
+    }
+
+    @Test
+    public void testMultiLevelInheritanceSafeCasting() throws IOException, InterruptedException {
+        String code = """
+            class A {
+                void f() {
+                    print_s((char*)"A");
+                }
+            }
+            
+            class B extends A {
+                void f() {
+                    print_s((char*)"B");
+                }
+                void g() {
+                    print_s((char*)"B-g");
+                }
+            }
+            
+            class C extends B {
+                void f() {
+                    print_s((char*)"C");
+                }
+                void g() {
+                    print_s((char*)"C-g");
+                }
+                void h() {
+                    print_s((char*)"C-h");
+                }
+            }
+            
+            int main() {
+                // Directly create a variable of type B to hold the instance of C.
+                class B b;
+                class C c;
+                b = (class B) new class C();  // Upcasting from C to B is safe.
+                b.f();              // Expected to call C.f() → outputs "C"
+                b.g();              // Expected to call C.g() → outputs "C-g"
+            }
+            """;
+        String output = runCode(code);
+        String expectedOutput = "CC-g";
+        assertEquals(expectedOutput, output, "Multi-level inheritance safe casting test");
+    }
+
+    @Test
+    public void testCalculatorInheritance() throws IOException, InterruptedException {
+        String code = """
+            class Calculator {
+                int value;
+                void add(int x) {
+                    value = value + x;
+                }
+                void printValue() {
+                    print_i(value);
+                }
+            }
+
+            class AdvancedCalculator extends Calculator {
+                void multiply(int x) {
+                    value = value * x;
+                }
+            }
+
+            int main() {
+                class Calculator calc;
+                class AdvancedCalculator adv;
+                calc = (class Calculator) new class AdvancedCalculator();
+                calc.add(5);  // value becomes 5
+                calc.printValue(); // Should print "5"
+                return 0;
+            }
+            """;
+        String output = runCode(code);
+        String expectedOutput = "5";
+        assertEquals(expectedOutput, output, "Calculator inheritance dynamic dispatch test");
+    }
+
+    @Test
+    public void testExtendedArrayHolderNoDowncast() throws IOException, InterruptedException {
+        String code = """
+            class ArrayHolder {
+                int arr[5];
+                void setValue(int index, int value) {
+                    arr[index] = value;
+                }
+                void printValue(int index) {
+                    print_i(arr[index]);
+                }
+            }
+            
+            class ExtendedArrayHolder extends ArrayHolder {
+                void doubleValue(int index) {
+                    arr[index] = arr[index] * 2;
+                }
+            }
+            
+            int main() {
+                // Directly create an instance of ExtendedArrayHolder.
+                class ExtendedArrayHolder e;
+                class ArrayHolder a;
+                e = new class ExtendedArrayHolder();
+                e.setValue(2, 7);
+                e.doubleValue(2);   // Doubles the value at index 2 from 7 to 14.
+                
+                // Upcast: store the ExtendedArrayHolder instance in a base type reference.
+                a = (class ArrayHolder) e;              // This is an upcast, which reduces the visible interface to ArrayHolder.
+                a.printValue(2);    // Expected output: "14"
+                return 0;
+            }
+            """;
+        String output = runCode(code);
+        String expectedOutput = "14";
+        assertEquals(expectedOutput, output, "Class with array field and upcasting test");
+    }
+
+    @Test
+    public void testComplexCastingChainNoDowncast() throws IOException, InterruptedException {
+        String code = """
+            class Base {
+                void info() {
+                    print_s((char*)"Base");
+                }
+            }
+            
+            class Derived extends Base {
+                void info() {
+                    print_s((char*)"Derived");
+                }
+                void extra() {
+                    print_s((char*)"DerivedExtra");
+                }
+            }
+            
+            class MoreDerived extends Derived {
+                void info() {
+                    print_s((char*)"MoreDerived");
+                }
+                void extra() {
+                    print_s((char*)"MoreDerivedExtra");
+                }
+            }
+            
+            int main() {
+                // Create an instance as MoreDerived.
+                class MoreDerived m;
+                class Base b;
+                class Derived d;
+                
+                m = new class MoreDerived();
+                
+                // Upcast to Base. This shrinks the interface but still calls the correct info() method.
+                b = (class Base) m;        // Safe upcasting from MoreDerived to Base.
+                b.info();     // Dynamic dispatch should invoke MoreDerived.info(), printing "MoreDerived".
+                
+                // Upcast to Derived. Again, this is safe as MoreDerived is a subtype of Derived.
+                d = (class Derived) m;        // Safe upcasting from MoreDerived to Derived.
+                d.extra();    // Dynamic dispatch should invoke MoreDerived.extra(), printing "MoreDerivedExtra".
+                
+                return 0;
+            }
+            """;
+        String output = runCode(code);
+        String expectedOutput = "MoreDerivedMoreDerivedExtra";
+        assertEquals(expectedOutput, output, "Complex casting chain using only upcasting test");
+    }
 }
