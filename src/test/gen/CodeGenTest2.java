@@ -919,13 +919,12 @@ int main() {
                     print_i(x);
                     print_i(y);
                 }
-                
+
                 void setValues(int a, int b) {
                     x = a;
                     y = b;
                     printValues();
                 }
-
             }
 
             int main() {
@@ -939,4 +938,574 @@ int main() {
         assertEquals(expectedOutput, output, "Method call from method and field access test");
     }
 
+    @Test
+    public void testClassFieldShadowingByLocal() throws IOException, InterruptedException {
+        String code = """
+        class Example {
+            int value;
+
+            void setValue(int value) {  // parameter shadows field
+                value = value + 10;      // modifies local parameter, not field
+            }
+
+            void init() {
+                value = 5;  // Set actual field
+            }
+
+            void printValue() {
+                print_i(value); // Should still be 5
+            }
+        }
+
+        int main() {
+            class Example e;
+            e = new class Example();
+            e.init();
+            e.setValue(100);   // Should NOT change field
+            e.printValue();    // Should print 5
+        }
+        """;
+        String output = runCode(code);
+        String expectedOutput = "5";
+        assertEquals(expectedOutput, output, "Class field shadowed by method parameter test");
+    }
+
+    @Test
+    public void testClassFieldShadowsGlobal() throws IOException, InterruptedException {
+        String code = """
+        int value;
+
+        class Example {
+            int value;  // Shadows global variable
+
+            void setValue(int value) {  // parameter shadows field
+                value = value + 10;      // modifies local parameter, not field
+            }
+
+            void init() {
+                value = 5;  // Set actual field
+            }
+
+            void printValue() {
+                print_i(value); // Should print the field, not the global variable
+            }
+        }
+
+        int main() {
+            class Example e;
+            e = new class Example();
+            value = 10;
+            e.init();
+            e.setValue(100);   // Should NOT change field
+            e.printValue();    // Should print 5
+        }
+        """;
+        String output = runCode(code);
+        String expectedOutput = "5";
+        assertEquals(expectedOutput, output, "Class field shadows global variable test");
+    }
+
+    @Test
+    public void testClassSimpleFields1() throws IOException, InterruptedException {
+        String code = """
+        class Point {
+            int x;
+            int y;
+        }
+
+        int main() {
+            class Point p;
+            p = new class Point();
+            p.x = 3;
+            p.y = 4;
+            print_i(p.x);
+            print_i(p.y);
+        }
+        """;
+        String output = runCode(code);
+        String expectedOutput = "34";
+        assertEquals(expectedOutput, output, "Simple field access and assignment test (fields1)");
+    }
+
+    @Test
+    public void testClassSimpleFields2() throws IOException, InterruptedException {
+        String code = """
+        class Rectangle {
+            int width;
+            int height;
+        }
+
+        int main() {
+            class Rectangle r;
+            r = new class Rectangle();
+            r.width = 5;
+            r.height = 10;
+            print_i(r.width * r.height); // Should print 50
+        }
+        """;
+        String output = runCode(code);
+        String expectedOutput = "50";
+        assertEquals(expectedOutput, output, "Simple class field arithmetic test (fields2)");
+    }
+
+    @Test
+    public void testClassInheritanceStress() throws IOException, InterruptedException {
+        String code = """
+        class Base {
+            int a;
+            int b;
+
+            void init() {
+                a = 1;
+                b = 2;
+            }
+
+            void speak() {
+                print_s((char*)"Base\\n");
+            }
+
+            int sum() {
+                return a + b;
+            }
+        }
+
+        class Level1 extends Base {
+            int c;
+            int d;
+
+            void init() {
+                super.init();
+                c = 3;
+                d = 4;
+            }
+
+            void speak() {
+                print_s((char*)"Level1\\n");
+            }
+
+            int sum() {
+                return super.sum() + c + d;
+            }
+        }
+
+        class Level2 extends Level1 {
+            int e;
+            int f;
+
+            void init() {
+                super.init();
+                e = 5;
+                f = 6;
+            }
+
+            void speak() {
+                print_s((char*)"Level2\\n");
+            }
+
+            int sum() {
+                return super.sum() + e + f;
+            }
+        }
+
+        class Level3 extends Level2 {
+            int g;
+            int h;
+
+            void init() {
+                super.init();
+                g = 7;
+                h = 8;
+            }
+
+            void speak() {
+                print_s((char*)"Level3\\n");
+            }
+
+            int sum() {
+                return super.sum() + g + h;
+            }
+        }
+
+        class Level4 extends Level3 {
+            int i;
+            int j;
+
+            void init() {
+                super.init();
+                i = 9;
+                j = 10;
+            }
+
+            void speak() {
+                print_s((char*)"Level4\\n");
+            }
+
+            int sum() {
+                return super.sum() + i + j;
+            }
+        }
+
+        int main() {
+            class Base objBase;
+            class Level1 obj1;
+            class Level2 obj2;
+            class Level3 obj3;
+            class Level4 obj4;
+
+            objBase = (class Base) new class Level4();
+            obj1 = (class Level1) objBase;
+            obj2 = (class Level2) objBase;
+            obj3 = (class Level3) objBase;
+            obj4 = (class Level4) objBase;
+
+            obj4.init();     // Initialize all fields correctly.
+
+            objBase.speak(); // Should print Level4
+            obj1.speak();    // Should print Level4
+            obj2.speak();    // Should print Level4
+            obj3.speak();    // Should print Level4
+            obj4.speak();    // Should print Level4
+
+            print_i(objBase.sum()); // Should sum all 10 fields
+
+            print_i(obj4.a);
+            print_i(obj4.b);
+            print_i(obj4.c);
+            print_i(obj4.d);
+            print_i(obj4.e);
+            print_i(obj4.f);
+            print_i(obj4.g);
+            print_i(obj4.h);
+            print_i(obj4.i);
+            print_i(obj4.j);
+
+            return 0;
+        }
+        """;
+
+        String output = runCode(code);
+        String expectedOutput = "Level4\nLevel4\nLevel4\nLevel4\nLevel4\n55" + "12345678910";
+        assertEquals(expectedOutput, output, "Big class inheritance stress test");
+    }
+
+    @Test
+    public void testClassInheritanceStressNoDowncast() throws IOException, InterruptedException {
+        String code = """
+        class Base {
+            int a;
+            int b;
+
+            void init() {
+                a = 1;
+                b = 2;
+            }
+
+            void speak() {
+                print_s((char*)"Base\\n");
+            }
+
+            int sum() {
+                return a + b;
+            }
+        }
+
+        class Level1 extends Base {
+            int c;
+            int d;
+
+            void init() {
+                a = 1;
+                b = 2;
+                c = 3;
+                d = 4;
+            }
+
+            void speak() {
+                print_s((char*)"Level1\\n");
+            }
+
+            int sum() {
+                return a + b + c + d;
+            }
+        }
+
+        class Level2 extends Level1 {
+            int e;
+            int f;
+
+            void init() {
+                a = 1;
+                b = 2;
+                c = 3;
+                d = 4;
+                e = 5;
+                f = 6;
+            }
+
+            void speak() {
+                print_s((char*)"Level2\\n");
+            }
+
+            int sum() {
+                return a + b + c + d + e + f;
+            }
+        }
+
+        class Level3 extends Level2 {
+            int g;
+            int h;
+
+            void init() {
+                a = 1;
+                b = 2;
+                c = 3;
+                d = 4;
+                e = 5;
+                f = 6;
+                g = 7;
+                h = 8;
+            }
+
+            void speak() {
+                print_s((char*)"Level3\\n");
+            }
+
+            int sum() {
+                return a + b + c + d + e + f + g + h;
+            }
+        }
+
+        class Level4 extends Level3 {
+            int i;
+            int j;
+
+            void init() {
+                a = 1;
+                b = 2;
+                c = 3;
+                d = 4;
+                e = 5;
+                f = 6;
+                g = 7;
+                h = 8;
+                i = 9;
+                j = 10;
+            }
+
+            void speak() {
+                print_s((char*)"Level4\\n");
+            }
+
+            int sum() {
+                return a + b + c + d + e + f + g + h + i + j;
+            }
+        }
+
+        int main() {
+            class Level4 obj4;
+            class Level3 obj3;
+            class Level2 obj2;
+            class Level1 obj1;
+            class Base obj0;
+
+            obj4 = new class Level4();
+            obj4.init();
+
+            obj3 = (class Level3) obj4; // UPCAST: Level4 → Level3
+            obj2 = (class Level2) obj4; // UPCAST: Level4 → Level2
+            obj1 = (class Level1) obj4; // UPCAST: Level4 → Level1
+            obj0 = (class Base) obj4;   // UPCAST: Level4 → Base
+
+            obj0.speak(); // Should call Level4.speak() because dynamic dispatch
+            obj1.speak(); // Should call Level4.speak()
+            obj2.speak(); // Should call Level4.speak()
+            obj3.speak(); // Should call Level4.speak()
+            obj4.speak(); // Should call Level4.speak()
+
+            print_i(obj0.sum()); // Should print 55
+
+            print_i(obj4.a);
+            print_i(obj4.b);
+            print_i(obj4.c);
+            print_i(obj4.d);
+            print_i(obj4.e);
+            print_i(obj4.f);
+            print_i(obj4.g);
+            print_i(obj4.h);
+            print_i(obj4.i);
+            print_i(obj4.j);
+
+            return 0;
+        }
+        """;
+
+        String output = runCode(code);
+        String expectedOutput = "Level4\nLevel4\nLevel4\nLevel4\nLevel4\n55" + "12345678910";
+        assertEquals(expectedOutput, output, "Big class inheritance stress test (safe upcasting only)");
+    }
+
+    @Test
+    public void testClassFieldIsAnotherClass() throws IOException, InterruptedException {
+        String code = """
+        class Engine {
+            int horsepower;
+        }
+
+        class Car {
+            class Engine engine;
+        }
+
+        int main() {
+            class Car myCar;
+            myCar = new class Car();
+            myCar.engine = new class Engine();
+            myCar.engine.horsepower = 400;
+            print_i(myCar.engine.horsepower);
+        }
+        """;
+        String output = runCode(code);
+        String expectedOutput = "400";
+        assertEquals(expectedOutput, output, "Class field is another class test");
+    }
+
+    @Test
+    public void testNestedClassFields() throws IOException, InterruptedException {
+        String code = """
+        class CPU {
+            int cores;
+        }
+
+        class Computer {
+            class CPU cpu;
+        }
+
+        class Office {
+            class Computer comp;
+        }
+
+        int main() {
+            class Office office;
+            office = new class Office();
+            office.comp = new class Computer();
+            office.comp.cpu = new class CPU();
+            office.comp.cpu.cores = 8;
+            print_i(office.comp.cpu.cores);
+        }
+        """;
+        String output = runCode(code);
+        String expectedOutput = "8";
+        assertEquals(expectedOutput, output, "Nested class fields test");
+    }
+
+    @Test
+    public void testModifyInnerClassField() throws IOException, InterruptedException {
+        String code = """
+        class Battery {
+            int charge;
+        }
+
+        class Phone {
+            class Battery battery;
+        }
+
+        int main() {
+            class Phone p;
+            p = new class Phone();
+            p.battery = new class Battery();
+            p.battery.charge = 50;
+            p.battery.charge = p.battery.charge + 30;
+            print_i(p.battery.charge);
+        }
+        """;
+        String output = runCode(code);
+        String expectedOutput = "80";
+        assertEquals(expectedOutput, output, "Modify inner class field through outer class test");
+    }
+
+    @Test
+    public void testClassFieldInheritance() throws IOException, InterruptedException {
+        String code = """
+        class Wheel {
+            int size;
+        }
+
+        class Vehicle {
+            class Wheel wheel;
+        }
+
+        class Bicycle extends Vehicle {
+        }
+
+        int main() {
+            class Bicycle bike;
+            bike = new class Bicycle();
+            bike.wheel = new class Wheel();
+            bike.wheel.size = 26;
+            print_i(bike.wheel.size);
+        }
+        """;
+        String output = runCode(code);
+        String expectedOutput = "26";
+        assertEquals(expectedOutput, output, "Class field with inheritance test");
+    }
+
+    @Test
+    public void testTwoClassesAsFields() throws IOException, InterruptedException {
+        String code = """
+        class Engine {
+            int rpm;
+        }
+
+        class Wheel {
+            int diameter;
+        }
+
+        class Car {
+            class Engine engine;
+            class Wheel wheel;
+        }
+
+        int main() {
+            class Car c;
+            c = new class Car();
+            c.engine = new class Engine();
+            c.wheel = new class Wheel();
+            c.engine.rpm = 6000;
+            c.wheel.diameter = 18;
+            print_i(c.engine.rpm);
+            print_i(c.wheel.diameter);
+        }
+        """;
+        String output = runCode(code);
+        String expectedOutput = "600018";
+        assertEquals(expectedOutput, output, "Two classes as fields test");
+    }
+
+    @Test
+    public void testAccessClassFieldThroughParameter() throws IOException, InterruptedException {
+        String code = """
+        class Author {
+            char name[20];
+        }
+
+        class Book {
+            class Author author;
+        }
+
+        void setAuthorName(class Book b) {
+            b.author = new class Author();
+            b.author.name[0] = 'A';
+        }
+
+        int main() {
+            class Book book;
+            book = new class Book();
+            setAuthorName(book);
+            print_c(book.author.name[0]);
+        }
+        """;
+        String output = runCode(code);
+        String expectedOutput = "A";
+        assertEquals(expectedOutput, output, "Access class field through function parameter test");
+    }
 }

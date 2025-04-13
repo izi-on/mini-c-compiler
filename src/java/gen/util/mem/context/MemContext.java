@@ -103,7 +103,7 @@ public class MemContext {
                 FuncStackFrame funcStackFrame = MemContext.getFuncStackFrame();
                 VarDecl pointerToObject = funcStackFrame.func.params.get(0);
                 int offsetOfVar = funcStackFrame.offsetOf(pointerToObject).orElseThrow();
-                Map<String, Integer> objectLayout = MemContext.getObjectLayouts().get(((PointerType)pointerToObject.type).pointerizedType);
+                Map<String, Integer> objectLayout = MemContext.getObjectLayouts().get(((ClassType) pointerToObject.type));
                 int offsetInObjectLayout = objectLayout.get(decl.name);
                 value = r.apply(offsetOfVar, offsetInObjectLayout);
             }

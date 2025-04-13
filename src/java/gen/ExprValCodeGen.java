@@ -189,6 +189,7 @@ public class ExprValCodeGen extends CodeGen {
             }
 
             case FieldAccessExpr fa -> {
+                ts.emit("BEGIN FIELD ACCESS EXPR FOR " + fa.field);
                 Register toAccessAddr = (new ExprAddrCodeGen(asmProg)).visit(fa);
                 return PassByRef.ifIs(fa.type).then(subtype -> {
                     return new ValueHolder.OnRegister(asmProg, new PointerType(subtype), toAccessAddr);
@@ -224,7 +225,7 @@ public class ExprValCodeGen extends CodeGen {
                         .computeIfClassField( (offsetOfObjRef, offsetOfFieldInObjLayout) -> {
                             Register addr = Register.Virtual.create();
                             ts.emit(OpCode.ADDIU, addr, Register.Arch.fp, offsetOfObjRef);
-                            ts.emit(OpCode.LW, addr, addr, offsetOfFieldInObjLayout); // load the pointer to the object layout
+                            ts.emit(OpCode.LW, addr, addr, 0); // load the pointer to the object layout
                             ts.emit(OpCode.ADDIU, addr, addr, offsetOfFieldInObjLayout); // load the pointer to the field in the object layout
                             return PassByRef.ifIs(ve.type).then(subtype -> {
                                 return new ValueHolder.OnRegister(asmProg, new PointerType(subtype), addr);

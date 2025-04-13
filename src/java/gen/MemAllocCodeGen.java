@@ -91,6 +91,7 @@ public class MemAllocCodeGen extends CodeGen {
         switch (n) {
             case FunDef fd -> handleFunDef(fd);
             case VarDecl vd -> handleVarDecl(vd);
+            case ClassDecl cd -> {nonGlobal(() -> cd.children().forEach(this::visit));}
             case StrLiteral str -> handleStrLiteral(str);
             case StructTypeDecl std -> handleStructTypeDecl(std);
             default -> n.children().forEach(this::visit);
