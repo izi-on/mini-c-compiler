@@ -61,7 +61,8 @@ public class CodeGenTest {
 
             // Step 3: Code Generation
             // Here we use our default register allocator, NaiveRegAlloc.
-            CodeGenerator codegen = new CodeGenerator(NaiveRegAlloc.INSTANCE);
+//            CodeGenerator codegen = new CodeGenerator(NaiveRegAlloc.INSTANCE);
+            CodeGenerator codegen = new CodeGenerator(GraphColouringRegAlloc.INSTANCE);
             Path tempOutput = Files.createTempFile("output", ".asm");
             codegen.emitProgram(prog, tempOutput.toFile());
             System.out.println("Code generated successfully in " + tempOutput.toAbsolutePath());
@@ -2986,6 +2987,29 @@ public class CodeGenTest {
         String expectedOutput = "true";
         String output = runCode(code);
         assertEquals(expectedOutput, output, "Compound logical expression should evaluate correctly with non-boolean ints.");
+    }
+
+
+    @Test
+    public void testRandom() throws IOException, InterruptedException {
+        // Test a compound expression: (a && b) || c, where a nonzero value makes the condition true.
+        String code = """
+            struct Data {
+                 char value; // Struct of size 1 byte
+             };
+ 
+             struct Data source; // Global source
+             struct Data dest;   // Global destination
+ 
+             int main() {
+                 // source.value = 'A'; // Initialization (optional for test)
+                 dest = source;      // The assignment that triggers the byte copy loop
+                 // print_c(dest.value); // Optional: Verify runtime if needed
+                 return 0;
+             }    """;
+        String expectedOutput = "";
+        String output = runCode(code);
+        assertEquals(expectedOutput, output, "Checks CFG and all");
     }
 
     @Test

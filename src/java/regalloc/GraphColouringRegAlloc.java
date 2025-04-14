@@ -520,6 +520,7 @@ public class GraphColouringRegAlloc implements AssemblyPass {
                     if (definedAndNotUsedRegisters.size() > 0) {
                         changed = true;
                     }
+
     //                System.out.println("Dead registers: " + definedAndNotUsedRegisters);
                     filteredItems = filteredItems.stream().filter(item -> {
                         if (item instanceof Instruction insn) {
@@ -652,11 +653,6 @@ public class GraphColouringRegAlloc implements AssemblyPass {
                     }
                 }
             });
-
-
-            // print num of mem instruction (load and store)
-            int numLoad = (int) filteredItems.stream().filter(item -> item instanceof Instruction insn && (insn.opcode == OpCode.LW || insn.opcode == OpCode.SW)).count();
-            System.out.println("Number of load/store instructions: " + numLoad);
         });
 
         return newProg;
