@@ -1,9 +1,0 @@
-#include smthg
-#include smthg // ignore this
-#include smthg /* ignore
-*ignore/ this */
-char c = 'a';
-String s = "Hello \n World!";
-int x = 123;
-char c = '\n'
-é;
