@@ -164,7 +164,5 @@ The compiler follows a standard pipeline architecture:
 
 ## Credits
 
-This project was written as part of the McGill COMP520 course taught by Prof. Christophe Dubach, focusing on compiler construction and design. The project was written and developed purely by myself and is not based on any external sources or repositories other than the ones taught in the COMP 520 class.
-
-
+This project was written as part of a McGill course taught by Prof. Christophe Dubach, focusing on compiler construction and design. The project was written and developed entirely by myself and is not based on any external sources or repositories other than the ones taught in the class.
 ---
